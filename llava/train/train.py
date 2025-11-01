@@ -23,9 +23,11 @@ import pathlib
 from typing import Dict, Optional, Sequence, List
 
 import torch
+import torch.nn as nn
 
 import transformers
 import tokenizers
+from transformers.activations import ACT2FN
 
 from llava.constants import IGNORE_INDEX, IMAGE_TOKEN_INDEX, DEFAULT_IMAGE_TOKEN, DEFAULT_IM_START_TOKEN, DEFAULT_IM_END_TOKEN
 from torch.utils.data import Dataset
@@ -36,7 +38,8 @@ from llava.model import *
 from llava.mm_utils import tokenizer_image_token
 
 from PIL import Image
-
+import os
+os.environ["WANDB_MODE"] = "disabled"
 
 local_rank = None
 
@@ -64,6 +67,10 @@ class ModelArguments:
     mm_use_im_patch_token: bool = field(default=True)
     mm_patch_merge_type: Optional[str] = field(default='flat')
     mm_vision_select_feature: Optional[str] = field(default="patch")
+    router_aux_loss_coef: float =field(default=0.1)
+    topk : int = field(default=1)
+    expert_nums : int = field(default=7)
+    base_set: str = field(default="")
 
 
 @dataclass
@@ -110,6 +117,8 @@ class TrainingArguments(transformers.TrainingArguments):
     lora_bias: str = "none"
     mm_projector_lr: Optional[float] = None
     group_by_modality_length: bool = field(default=False)
+    pretrain_loss: bool = False
+    only_train_gate: bool = False
 
 
 def maybe_zero_3(param, ignore_status=False, name=None):
@@ -304,7 +313,6 @@ def _add_speaker_and_signal(header, source, get_conversation=True):
     conversation += BEGIN_SIGNAL
     return conversation
 
-
 def preprocess_multimodal(
     sources: Sequence[str],
     data_args: DataArguments
@@ -315,6 +323,7 @@ def preprocess_multimodal(
 
     for source in sources:
         for sentence in source:
+            # print("source before:", source)
             if DEFAULT_IMAGE_TOKEN in sentence['value']:
                 sentence['value'] = sentence['value'].replace(DEFAULT_IMAGE_TOKEN, '').strip()
                 sentence['value'] = DEFAULT_IMAGE_TOKEN + '\n' + sentence['value']
@@ -325,6 +334,7 @@ def preprocess_multimodal(
             if data_args.mm_use_im_start_end:
                 replace_token = DEFAULT_IM_START_TOKEN + replace_token + DEFAULT_IM_END_TOKEN
             sentence["value"] = sentence["value"].replace(DEFAULT_IMAGE_TOKEN, replace_token)
+            # print("source after:", source)
 
     return sources
 
@@ -610,6 +620,7 @@ def preprocess_plain(
 def preprocess(
     sources: Sequence[str],
     tokenizer: transformers.PreTrainedTokenizer,
+    pretrain_loss,
     has_image: bool = False
 ) -> Dict:
     """
@@ -644,13 +655,14 @@ def preprocess(
         input_ids = conversations_tokenized["input_ids"]
 
     targets = copy.deepcopy(input_ids)
-    for target, source in zip(targets, sources):
-        if has_image:
-            tokenized_lens = get_tokenize_len([header] + [s["value"] for s in source])
-        else:
-            tokenized_lens = _tokenize_fn([header] + [s["value"] for s in source], tokenizer)["input_ids_lens"]
-        speakers = [sentence["from"] for sentence in source]
-        _mask_targets(target, tokenized_lens, speakers)
+    if not pretrain_loss:
+        for target, source in zip(targets, sources):
+            if has_image:
+                tokenized_lens = get_tokenize_len([header] + [s["value"] for s in source])
+            else:
+                tokenized_lens = _tokenize_fn([header] + [s["value"] for s in source], tokenizer)["input_ids_lens"]
+            speakers = [sentence["from"] for sentence in source]
+            _mask_targets(target, tokenized_lens, speakers)
 
     return dict(input_ids=input_ids, labels=targets)
 
@@ -660,6 +672,7 @@ class LazySupervisedDataset(Dataset):
 
     def __init__(self, data_path: str,
                  tokenizer: transformers.PreTrainedTokenizer,
+                 pretrain_loss,
                  data_args: DataArguments):
         super(LazySupervisedDataset, self).__init__()
         list_data_dict = json.load(open(data_path, "r"))
@@ -668,6 +681,7 @@ class LazySupervisedDataset(Dataset):
         self.tokenizer = tokenizer
         self.list_data_dict = list_data_dict
         self.data_args = data_args
+        self.pretrain_loss = pretrain_loss
 
     def __len__(self):
         return len(self.list_data_dict)
@@ -689,41 +703,108 @@ class LazySupervisedDataset(Dataset):
             length_list.append(cur_len)
         return length_list
 
+    # def __getitem__(self, i) -> Dict[str, torch.Tensor]:
+    #     sources = self.list_data_dict[i]
+    #     if isinstance(i, int):
+    #         sources = [sources]
+    #     assert len(sources) == 1, "Don't know why it is wrapped to a list"  # FIXME
+    #     if 'image' in sources[0]:
+    #         image_file = self.list_data_dict[i]['image']
+    #         image_folder = self.data_args.image_folder
+    #         processor = self.data_args.image_processor
+    #         image = Image.open(os.path.join(image_folder, image_file)).convert('RGB')
+    #         if self.data_args.image_aspect_ratio == 'pad':
+    #             def expand2square(pil_img, background_color):
+    #                 width, height = pil_img.size
+    #                 if width == height:
+    #                     return pil_img
+    #                 elif width > height:
+    #                     result = Image.new(pil_img.mode, (width, width), background_color)
+    #                     result.paste(pil_img, (0, (width - height) // 2))
+    #                     return result
+    #                 else:
+    #                     result = Image.new(pil_img.mode, (height, height), background_color)
+    #                     result.paste(pil_img, ((height - width) // 2, 0))
+    #                     return result
+    #             image = expand2square(image, tuple(int(x*255) for x in processor.image_mean))
+    #             image = processor.preprocess(image, return_tensors='pt')['pixel_values'][0]
+    #         else:
+    #             image = processor.preprocess(image, return_tensors='pt')['pixel_values'][0]
+    #         sources = preprocess_multimodal(
+    #             copy.deepcopy([e["conversations"] for e in sources]),
+    #             self.data_args)
+    #     else:
+    #         sources = copy.deepcopy([e["conversations"] for e in sources])
+    #     data_dict = preprocess(
+    #         sources,
+    #         self.tokenizer,
+    #         self.pretrain_loss,
+    #         has_image=('image' in self.list_data_dict[i]))
+    #     if isinstance(i, int):
+    #         data_dict = dict(input_ids=data_dict["input_ids"][0],
+    #                          labels=data_dict["labels"][0])
+
+    #     # image exist in the data
+    #     if 'image' in self.list_data_dict[i]:
+    #         data_dict['image'] = image
+    #     elif self.data_args.is_multimodal:
+    #         # image does not exist in the data, but the model is multimodal
+    #         crop_size = self.data_args.image_processor.crop_size
+    #         data_dict['image'] = torch.zeros(3, crop_size['height'], crop_size['width'])
+    #     return data_dict
+
     def __getitem__(self, i) -> Dict[str, torch.Tensor]:
         sources = self.list_data_dict[i]
         if isinstance(i, int):
             sources = [sources]
         assert len(sources) == 1, "Don't know why it is wrapped to a list"  # FIXME
+        images_tensor = None
+        def expand2square(pil_img, background_color):
+            width, height = pil_img.size
+            if width == height:
+                return pil_img
+            elif width > height:
+                result = Image.new(pil_img.mode, (width, width), background_color)
+                result.paste(pil_img, (0, (width - height) // 2))
+                return result
+            else:
+                result = Image.new(pil_img.mode, (height, height), background_color)
+                result.paste(pil_img, ((height - width) // 2, 0))
+                return result
+
         if 'image' in sources[0]:
-            image_file = self.list_data_dict[i]['image']
+            image_files = self.list_data_dict[i]['image']
             image_folder = self.data_args.image_folder
             processor = self.data_args.image_processor
-            image = Image.open(os.path.join(image_folder, image_file)).convert('RGB')
-            if self.data_args.image_aspect_ratio == 'pad':
-                def expand2square(pil_img, background_color):
-                    width, height = pil_img.size
-                    if width == height:
-                        return pil_img
-                    elif width > height:
-                        result = Image.new(pil_img.mode, (width, width), background_color)
-                        result.paste(pil_img, (0, (width - height) // 2))
-                        return result
-                    else:
-                        result = Image.new(pil_img.mode, (height, height), background_color)
-                        result.paste(pil_img, ((height - width) // 2, 0))
-                        return result
-                image = expand2square(image, tuple(int(x*255) for x in processor.image_mean))
-                image = processor.preprocess(image, return_tensors='pt')['pixel_values'][0]
+            processed_imgs = []
+            if isinstance(image_files, str):
+                image = Image.open(os.path.join(image_folder, image_files)).convert('RGB')
+                if self.data_args.image_aspect_ratio == 'pad':
+                    image = expand2square(image, tuple(int(x*255) for x in processor.image_mean))
+                images_tensor = processor.preprocess(image, return_tensors='pt')['pixel_values'][0]
+
             else:
-                image = processor.preprocess(image, return_tensors='pt')['pixel_values'][0]
+                for image_file in image_files:
+                    image = Image.open(os.path.join(image_folder, image_file)).convert('RGB')
+                    if self.data_args.image_aspect_ratio == 'pad':
+                        image = expand2square(image, tuple(int(x*255) for x in processor.image_mean))
+                    image = processor.preprocess(image, return_tensors='pt')['pixel_values'][0]
+                    processed_imgs.append(image)
+
+                images_tensor = torch.stack(processed_imgs, dim=0)
+                # print("Stacked image tensor shape:", images_tensor.shape)
+
             sources = preprocess_multimodal(
                 copy.deepcopy([e["conversations"] for e in sources]),
                 self.data_args)
+                
         else:
             sources = copy.deepcopy([e["conversations"] for e in sources])
+
         data_dict = preprocess(
             sources,
             self.tokenizer,
+            self.pretrain_loss,
             has_image=('image' in self.list_data_dict[i]))
         if isinstance(i, int):
             data_dict = dict(input_ids=data_dict["input_ids"][0],
@@ -731,19 +812,19 @@ class LazySupervisedDataset(Dataset):
 
         # image exist in the data
         if 'image' in self.list_data_dict[i]:
-            data_dict['image'] = image
+            data_dict['image'] = images_tensor
         elif self.data_args.is_multimodal:
             # image does not exist in the data, but the model is multimodal
             crop_size = self.data_args.image_processor.crop_size
             data_dict['image'] = torch.zeros(3, crop_size['height'], crop_size['width'])
         return data_dict
 
-
 @dataclass
 class DataCollatorForSupervisedDataset(object):
-    """Collate examples for supervised fine-tuning."""
+    """Collate examples for supervised fine-tuning with multi-image support."""
 
     tokenizer: transformers.PreTrainedTokenizer
+    pretrain_loss: bool = False
 
     def __call__(self, instances: Sequence[Dict]) -> Dict[str, torch.Tensor]:
         input_ids, labels = tuple([instance[key] for instance in instances]
@@ -769,17 +850,18 @@ class DataCollatorForSupervisedDataset(object):
                 batch['images'] = torch.stack(images)
             else:
                 batch['images'] = images
+                # print("Batch images shape:", batch['images'].shape)
 
         return batch
 
-
 def make_supervised_data_module(tokenizer: transformers.PreTrainedTokenizer,
-                                data_args) -> Dict:
+                                data_args,training_args) -> Dict:
     """Make dataset and collator for supervised fine-tuning."""
     train_dataset = LazySupervisedDataset(tokenizer=tokenizer,
                                 data_path=data_args.data_path,
-                                data_args=data_args)
-    data_collator = DataCollatorForSupervisedDataset(tokenizer=tokenizer)
+                                data_args=data_args,
+                                pretrain_loss=training_args.pretrain_loss)
+    data_collator = DataCollatorForSupervisedDataset(tokenizer=tokenizer,pretrain_loss=training_args.pretrain_loss)
     return dict(train_dataset=train_dataset,
                 eval_dataset=None,
                 data_collator=data_collator)
@@ -824,13 +906,49 @@ def train(attn_implementation=None):
                 **bnb_model_from_pretrained_args
             )
         else:
+            config = transformers.AutoConfig.from_pretrained(model_args.model_name_or_path,trust_remote_code=True)
+            config._flash_attn_2_enabled=True
+            config.output_router_logits = True
+            config.router_aux_loss_coef = model_args.router_aux_loss_coef
+            config.base_set = json.loads(model_args.base_set)
+            config.expert_nums = model_args.expert_nums
+            config.topk = model_args.topk
+            config.rope_theta=10000.0
+            config.attention_bias=False
+
+            # print(f"配置检查:")
+            # print(f"expert_nums: {config.expert_nums}")
+            # print(f"topk: {config.topk}")
+            # print(f"base_set: {config.base_set}")
+
+            # 部分加载
+            # 部分加载
+            # 部分加载
             model = LlavaLlamaForCausalLM.from_pretrained(
                 model_args.model_name_or_path,
+                config=config,
                 cache_dir=training_args.cache_dir,
                 attn_implementation=attn_implementation,
                 torch_dtype=(torch.bfloat16 if training_args.bf16 else None),
+                # ignore_mismatched_sizes=True,
                 **bnb_model_from_pretrained_args
             )
+
+            if training_args.only_train_gate:
+
+                for n,p in model.named_parameters():
+                                p.requires_grad_(False)
+                                
+                for n,p in model.named_parameters():
+                    if "self_attn.gate" in n:
+                        p.requires_grad_(True)
+                        print(n)
+
+                # for p in model.get_model().mm_projector.parameters():
+                #     p.requires_grad = True
+                #     print(n)
+                            
+                model.enable_input_require_grads() 
     else:
         model = transformers.LlamaForCausalLM.from_pretrained(
             model_args.model_name_or_path,
@@ -862,7 +980,8 @@ def train(attn_implementation=None):
         lora_config = LoraConfig(
             r=training_args.lora_r,
             lora_alpha=training_args.lora_alpha,
-            target_modules=find_all_linear_names(model),
+            target_modules=find_all_linear_names(model)
+                   + ["self_attn.gate_1", "self_attn.gate_2", "self_attn.gate_3"],
             lora_dropout=training_args.lora_dropout,
             bias=training_args.lora_bias,
             task_type="CAUSAL_LM",
@@ -957,7 +1076,35 @@ def train(attn_implementation=None):
                         module = module.to(torch.bfloat16)
 
     data_module = make_supervised_data_module(tokenizer=tokenizer,
-                                              data_args=data_args)
+                                              data_args=data_args,training_args=training_args)
+                                              
+            
+    # 为所有 gate 参数注册钩子
+    gate_params = []
+
+    for name, param in model.named_parameters():
+        if 'self_attn.gate' in name:
+            gate_params.append((name, param))
+            print(f"找到目标参数: {name}, 形状: {param.shape}")
+
+    if gate_params:
+        for name, param in gate_params:
+            def make_hook(param_name):
+                def print_grad(grad):
+                    if grad is not None:
+                        grad_norm = torch.norm(grad).item()
+                        grad_mean_abs = torch.mean(torch.abs(grad)).item()
+                        print(f"参数 {param_name} 的梯度: L2 范数 = {grad_norm:.6f}, 平均绝对值 = {grad_mean_abs:.6f}")
+                    else:
+                        print(f"参数 {param_name} 的梯度为 None")
+                return print_grad
+            
+            param.register_hook(make_hook(name))
+        
+        print(f"总共在 {len(gate_params)} 个参数上注册了 hook")
+    else:
+        print("未在模型参数中找到目标参数 'self_attn.gate'。")
+
     trainer = LLaVATrainer(model=model,
                     tokenizer=tokenizer,
                     args=training_args,

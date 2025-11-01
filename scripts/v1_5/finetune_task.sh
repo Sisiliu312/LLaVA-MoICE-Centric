@@ -1,12 +1,14 @@
 #!/bin/bash
+cd /root/LLaVA
+export PYTHONPATH=/root/LLaVA
 
 deepspeed llava/train/train_mem.py \
-    --deepspeed ./scripts/zero3.json \
-    --model_name_or_path liuhaotian/llava-v1.5-13b \
+    --deepspeed /root/LLaVA/scripts/v1_5/ds_z3_bf16.json \
+    --model_name_or_path /hy-tmp/llava-v1.5-7b \
     --version v1 \
-    --data_path ./playground/data/llava_v1_5_mix665k.json \
-    --image_folder ./playground/data \
-    --vision_tower openai/clip-vit-large-patch14-336 \
+    --data_path /hy-tmp/MuirBench/v2/train_all_prompt.json \
+    --image_folder /hy-tmp/MuirBench/v2/train_image \
+    --vision_tower /hy-tmp/clip-vit-large-patch14-336 \
     --mm_projector_type mlp2x_gelu \
     --mm_vision_select_layer -2 \
     --mm_use_im_start_end False \
@@ -14,23 +16,36 @@ deepspeed llava/train/train_mem.py \
     --image_aspect_ratio pad \
     --group_by_modality_length True \
     --bf16 True \
-    --output_dir ./checkpoints/llava-v1.5-13b-task \
-    --num_train_epochs 1 \
-    --per_device_train_batch_size 16 \
-    --per_device_eval_batch_size 4 \
-    --gradient_accumulation_steps 1 \
+    --output_dir /hy-tmp/checkpoints/llava-v1.5-7b-v2 \
+    --num_train_epochs 10 \
+    --per_device_train_batch_size 8 \
+    --per_device_eval_batch_size 1 \
+    --gradient_accumulation_steps 4 \
     --evaluation_strategy "no" \
-    --save_strategy "steps" \
-    --save_steps 50000 \
+    --save_strategy "no" \
     --save_total_limit 1 \
-    --learning_rate 2e-5 \
+    --learning_rate 1e-4 \
     --weight_decay 0. \
-    --warmup_ratio 0.03 \
-    --lr_scheduler_type "cosine" \
+    --warmup_ratio 0.2 \
     --logging_steps 1 \
+    --lr_scheduler_type constant \
     --tf32 True \
     --model_max_length 2048 \
     --gradient_checkpointing True \
     --dataloader_num_workers 4 \
     --lazy_preprocess True \
-    --report_to wandb
+    --report_to wandb \
+     --router_aux_loss_coef 0.3 \
+    --pretrain_loss True \
+    --topk 7 \
+    --expert_nums 7 \
+    --base_set "[10000,17500,18000,19000,20000,22500,25000]" \
+    --only_train_gate True \
+
+if [ $? -eq 0 ]; then
+    echo "Training completed successfully. Shutting down..."
+    sudo shutdown now
+else
+    echo "Training failed."
+    sudo shutdown now
+fi

@@ -3,6 +3,8 @@ import torch.nn as nn
 
 from transformers import CLIPVisionModel, CLIPImageProcessor, CLIPVisionConfig
 
+import logging
+logging.getLogger("transformers.modeling_utils").setLevel(logging.ERROR)
 
 class CLIPVisionTower(nn.Module):
     def __init__(self, vision_tower, args, delay_load=False):

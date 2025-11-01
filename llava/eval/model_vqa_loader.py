@@ -38,24 +38,36 @@ class CustomDataset(Dataset):
 
     def __getitem__(self, index):
         line = self.questions[index]
-        image_file = line["image"]
+        # image_file = line["image"]
         qs = line["text"]
-        if self.model_config.mm_use_im_start_end:
-            qs = DEFAULT_IM_START_TOKEN + DEFAULT_IMAGE_TOKEN + DEFAULT_IM_END_TOKEN + '\n' + qs
+        if "image" in line and line["image"] is not None:
+            img_field = line["image"]
+            if isinstance(img_field, str):           # 单张图片
+                images = [Image.open(os.path.join(self.image_folder, img_field)).convert('RGB')]
+            else:
+                images = [Image.open(os.path.join(self.image_folder, f)).convert('RGB') for f in img_field]
+            image_tensors = process_images(images, self.image_processor, self.model_config)
+            image_sizes = [img.size for img in images]
+            if self.model_config.mm_use_im_start_end:
+                qs = DEFAULT_IM_START_TOKEN + DEFAULT_IMAGE_TOKEN + DEFAULT_IM_END_TOKEN + '\n' + qs
+            else:
+                qs = DEFAULT_IMAGE_TOKEN + '\n' + qs
         else:
-            qs = DEFAULT_IMAGE_TOKEN + '\n' + qs
+            crop_size = self.image_processor.crop_size
+            image_tensors = torch.zeros(3, crop_size['height'], crop_size['width'])
+            image_sizes = [(crop_size['width'], crop_size['height'])]
+        # image_files = line["image"] if isinstance(line["image"], list) else [line["image"]]
 
         conv = conv_templates[args.conv_mode].copy()
         conv.append_message(conv.roles[0], qs)
         conv.append_message(conv.roles[1], None)
         prompt = conv.get_prompt()
 
-        image = Image.open(os.path.join(self.image_folder, image_file)).convert('RGB')
-        image_tensor = process_images([image], self.image_processor, self.model_config)[0]
+        # images = [Image.open(os.path.join(self.image_folder, img_file)).convert('RGB') for img_file in image_files]
 
         input_ids = tokenizer_image_token(prompt, self.tokenizer, IMAGE_TOKEN_INDEX, return_tensors='pt')
 
-        return input_ids, image_tensor, image.size
+        return input_ids, image_tensors, image_sizes
 
     def __len__(self):
         return len(self.questions)
@@ -65,6 +77,21 @@ def collate_fn(batch):
     input_ids, image_tensors, image_sizes = zip(*batch)
     input_ids = torch.stack(input_ids, dim=0)
     image_tensors = torch.stack(image_tensors, dim=0)
+    if image_tensors.dim() == 3:
+            # 单张图片: [C, H, W]
+            pass  # 保持不变
+    elif image_tensors.dim() == 4:
+        num_images = image_tensors.shape[0]
+        if num_images == 1:
+            # 单张图片但有batch维度: [1, C, H, W]
+            # 可以选择squeeze或保持不变
+            pass
+        else:
+            # 多张图片: [N, C, H, W]，N > 1
+            # 转为列表
+            image_tensors = list(torch.unbind(image_tensors, dim=0))
+            print(f"多张图片检测: {num_images} 张，已转为列表")
+    # print("image_tensors shape:", image_tensors.shape)
     return input_ids, image_tensors, image_sizes
 
 

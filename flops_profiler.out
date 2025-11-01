@@ -1,0 +1,1315 @@
+
+-------------------------- DeepSpeed Flops Profiler --------------------------
+Profile Summary at step 11:
+Notations:
+data parallel size (dp_size), model parallel size(mp_size),
+number of parameters (params), number of multiply-accumulate operations(MACs),
+number of floating-point operations (flops), floating-point operations per second (FLOPS),
+fwd latency (forward propagation latency), bwd latency (backward propagation latency),
+step (weights update latency), iter latency (sum of fwd, bwd and step latency)
+
+world size:                                                             1       
+data parallel size:                                                     1       
+model parallel size:                                                    1       
+batch size per GPU:                                                     8       
+params per GPU:                                                         135.92 M
+params of model = params per GPU * mp_size:                             135.92 M
+fwd MACs per GPU:                                                       156.23 TMACs
+fwd flops per GPU:                                                      312.48 T
+fwd flops of model = fwd flops per GPU * mp_size:                       312.48 T
+fwd latency:                                                            2.36 s  
+fwd FLOPS per GPU = fwd flops per GPU / fwd latency:                    132.37 TFLOPS
+bwd latency:                                                            4.64 s  
+bwd FLOPS per GPU = 2 * fwd flops per GPU / bwd latency:                134.55 TFLOPS
+fwd+bwd FLOPS per GPU = 3 * fwd flops per GPU / (fwd+bwd latency):      133.82 TFLOPS
+step latency:                                                           38.75 ms
+iter latency:                                                           7.04 s  
+FLOPS per GPU = 3 * fwd flops per GPU / iter latency:                   133.08 TFLOPS
+samples/second:                                                         1.14    
+
+----------------------------- Aggregated Profile per GPU -----------------------------
+Top 3 modules in terms of params, MACs or fwd latency at different model depths:
+depth 0:
+    params      - {'LlavaLlamaForCausalLM': '135.92 M'}
+    MACs        - {'LlavaLlamaForCausalLM': '156.23 TMACs'}
+    fwd latency - {'LlavaLlamaForCausalLM': '2.36 s'}
+depth 1:
+    params      - {'LlavaLlamaModel': '135.92 M', 'Linear': '0'}
+    MACs        - {'LlavaLlamaModel': '153.44 TMACs', 'Linear': '2.79 TMACs'}
+    fwd latency - {'LlavaLlamaModel': '2 s', 'Linear': '16.84 ms'}
+depth 2:
+    params      - {'Embedding': '131.07 M', 'Sequential': '4.2 M', 'CLIPVisionTower': '324.61 K'}
+    MACs        - {'ModuleList': '137.85 TMACs', 'CLIPVisionTower': '15.34 TMACs', 'Sequential': '253.67 GMACs'}
+    fwd latency - {'ModuleList': '1.99 s', 'CLIPVisionTower': '276.98 ms', 'Sequential': '2.34 ms'}
+depth 3:
+    params      - {'Linear': '4.2 M', 'CLIPVisionModel': '324.61 K', 'LlamaDecoderLayer': '321.06 K'}
+    MACs        - {'LlamaDecoderLayer': '137.85 TMACs', 'CLIPVisionModel': '15.34 TMACs', 'Linear': '253.67 GMACs'}
+    fwd latency - {'LlamaDecoderLayer': '1.99 s', 'CLIPVisionModel': '276.56 ms', 'Linear': '1.8 ms'}
+depth 4:
+    params      - {'CLIPVisionTransformer': '324.61 K', 'LlamaRMSNorm': '262.14 K', 'LlamaFlashAttention2': '58.91 K'}
+    MACs        - {'LlamaMLP': '92.11 TMACs', 'LlamaFlashAttention2': '45.74 TMACs', 'CLIPVisionTransformer': '15.34 TMACs'}
+    fwd latency - {'LlamaFlashAttention2': '1.22 s', 'LlamaMLP': '628.96 ms', 'CLIPVisionTransformer': '275.98 ms'}
+depth 5:
+    params      - {'CLIPEncoder': '319.49 K', 'Linear': '58.91 K', 'LayerNorm': '4.1 K'}
+    MACs        - {'Linear': '137.85 TMACs', 'CLIPEncoder': '15.32 TMACs', 'CLIPVisionEmbeddings': '14.57 GMACs'}
+    fwd latency - {'Linear': '881.08 ms', 'CLIPEncoder': '272.03 ms', 'SiLU': '18.7 ms'}
+depth 6:
+    params      - {'ModuleList': '319.49 K', 'Conv2d': '0', 'Embedding': '0'}
+    MACs        - {'ModuleList': '15.32 TMACs', 'Conv2d': '14.57 GMACs', 'Embedding': '0 MACs'}
+    fwd latency - {'ModuleList': '265.87 ms', 'Conv2d': '1.21 ms', 'Embedding': '263.69 us'}
+depth 7:
+    params      - {'CLIPEncoderLayer': '319.49 K'}
+    MACs        - {'CLIPEncoderLayer': '15.32 TMACs'}
+    fwd latency - {'CLIPEncoderLayer': '265.87 ms'}
+depth 8:
+    params      - {'CLIPMLP': '122.88 K', 'CLIPAttention': '98.3 K', 'LayerNorm': '98.3 K'}
+    MACs        - {'CLIPMLP': '9.76 TMACs', 'CLIPAttention': '5.57 TMACs', 'LayerNorm': '0 MACs'}
+    fwd latency - {'CLIPMLP': '122.84 ms', 'CLIPAttention': '122.25 ms', 'LayerNorm': '5.77 ms'}
+
+------------------------------ Detailed Profile per GPU ------------------------------
+Each module profile is listed after its name in the following order: 
+params, percentage of total params, MACs, percentage of total MACs, fwd latency, percentage of total fwd latency, fwd FLOPS
+
+Note: 1. A module can have torch.nn.module or torch.nn.functional to compute logits (e.g. CrossEntropyLoss). They are not counted as submodules, thus not to be printed out. However they make up the difference between a parent's MACs (or latency) and the sum of its submodules'.
+2. Number of floating-point operations is a theoretical estimation, thus FLOPS computed using that could be larger than the maximum system throughput.
+3. The fwd latency listed in the top module's profile is directly captured at the module forward function in PyTorch, thus it's less than the fwd latency shown above which is captured in DeepSpeed.
+
+LlavaLlamaForCausalLM(
+  135.92 M = 100% Params, 156.23 TMACs = 100% MACs, 2.36 s = 100% latency, 132.49 TFLOPS
+  (model): LlavaLlamaModel(
+    135.92 M = 100% Params, 153.44 TMACs = 98.21% MACs, 2 s = 84.88% latency, 153.3 TFLOPS
+    (embed_tokens): Embedding(131.07 M = 96.43% Params, 0 MACs = 0% MACs, 972.03 us = 0.04% latency, 0 FLOPS, 32000, 4096, padding_idx=0)
+    (layers): ModuleList(
+      (0): LlamaDecoderLayer(
+        10.03 K = 0.01% Params, 4.31 TMACs = 2.76% MACs, 62.45 ms = 2.65% latency, 137.95 TFLOPS
+        (self_attn): LlamaFlashAttention2(
+          1.84 K = 0% Params, 1.43 TMACs = 0.91% MACs, 38.42 ms = 1.63% latency, 74.4 TFLOPS
+          (gate_1): Linear(896 = 0% Params, 610.14 MMACs = 0% MACs, 215.53 us = 0.01% latency, 5.66 TFLOPS, in_features=128, out_features=7, bias=False)
+          (gate_2): Linear(49 = 0% Params, 33.37 MMACs = 0% MACs, 149.97 us = 0.01% latency, 445 GFLOPS, in_features=7, out_features=7, bias=False)
+          (gate_3): Linear(896 = 0% Params, 610.14 MMACs = 0% MACs, 165.22 us = 0.01% latency, 7.39 TFLOPS, in_features=128, out_features=7, bias=False)
+          (act_fn): SiLU(0 = 0% Params, 0 MACs = 0% MACs, 120.64 us = 0.01% latency, 19.76 GFLOPS)
+          (q_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.3 ms = 0.1% latency, 311.06 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (k_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.55 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (v_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.51 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (o_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.48 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (rotary_emb): LlamaRotaryEmbedding(0 = 0% Params, 0 MACs = 0% MACs, 119.92 us = 0.01% latency, 0 FLOPS)
+        )
+        (mlp): LlamaMLP(
+          0 = 0% Params, 2.88 TMACs = 1.84% MACs, 19.67 ms = 0.83% latency, 292.76 TFLOPS
+          (gate_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 5.93 ms = 0.25% latency, 323.62 TFLOPS, in_features=4096, out_features=11008, bias=False)
+          (up_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 5.92 ms = 0.25% latency, 323.91 TFLOPS, in_features=4096, out_features=11008, bias=False)
+          (down_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 6.01 ms = 0.25% latency, 319.27 TFLOPS, in_features=11008, out_features=4096, bias=False)
+          (act_fn): SiLU(0 = 0% Params, 0 MACs = 0% MACs, 483.75 us = 0.02% latency, 242.12 GFLOPS)
+        )
+        (input_layernorm): LlamaRMSNorm(4.1 K = 0% Params, 0 MACs = 0% MACs, 1.71 ms = 0.07% latency, 0 FLOPS)
+        (post_attention_layernorm): LlamaRMSNorm(4.1 K = 0% Params, 0 MACs = 0% MACs, 1.69 ms = 0.07% latency, 0 FLOPS)
+      )
+      (1): LlamaDecoderLayer(
+        10.03 K = 0.01% Params, 4.31 TMACs = 2.76% MACs, 62.15 ms = 2.63% latency, 138.63 TFLOPS
+        (self_attn): LlamaFlashAttention2(
+          1.84 K = 0% Params, 1.43 TMACs = 0.91% MACs, 38.08 ms = 1.61% latency, 75.06 TFLOPS
+          (gate_1): Linear(896 = 0% Params, 610.14 MMACs = 0% MACs, 204.32 us = 0.01% latency, 5.97 TFLOPS, in_features=128, out_features=7, bias=False)
+          (gate_2): Linear(49 = 0% Params, 33.37 MMACs = 0% MACs, 136.38 us = 0.01% latency, 489.34 GFLOPS, in_features=7, out_features=7, bias=False)
+          (gate_3): Linear(896 = 0% Params, 610.14 MMACs = 0% MACs, 161.65 us = 0.01% latency, 7.55 TFLOPS, in_features=128, out_features=7, bias=False)
+          (act_fn): SiLU(0 = 0% Params, 0 MACs = 0% MACs, 105.62 us = 0% latency, 22.57 GFLOPS)
+          (q_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.22 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (k_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.77 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (v_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.97 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (o_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.38 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (rotary_emb): LlamaRotaryEmbedding(0 = 0% Params, 0 MACs = 0% MACs, 111.34 us = 0% latency, 0 FLOPS)
+        )
+        (mlp): LlamaMLP(
+          0 = 0% Params, 2.88 TMACs = 1.84% MACs, 19.72 ms = 0.84% latency, 291.9 TFLOPS
+          (gate_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 5.93 ms = 0.25% latency, 323.67 TFLOPS, in_features=4096, out_features=11008, bias=False)
+          (up_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 5.93 ms = 0.25% latency, 323.4 TFLOPS, in_features=4096, out_features=11008, bias=False)
+          (down_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 6 ms = 0.25% latency, 319.79 TFLOPS, in_features=11008, out_features=4096, bias=False)
+          (act_fn): SiLU(0 = 0% Params, 0 MACs = 0% MACs, 487.33 us = 0.02% latency, 240.34 GFLOPS)
+        )
+        (input_layernorm): LlamaRMSNorm(4.1 K = 0% Params, 0 MACs = 0% MACs, 1.7 ms = 0.07% latency, 0 FLOPS)
+        (post_attention_layernorm): LlamaRMSNorm(4.1 K = 0% Params, 0 MACs = 0% MACs, 1.69 ms = 0.07% latency, 0 FLOPS)
+      )
+      (2): LlamaDecoderLayer(
+        10.03 K = 0.01% Params, 4.31 TMACs = 2.76% MACs, 63.31 ms = 2.68% latency, 136.08 TFLOPS
+        (self_attn): LlamaFlashAttention2(
+          1.84 K = 0% Params, 1.43 TMACs = 0.91% MACs, 38.82 ms = 1.65% latency, 73.64 TFLOPS
+          (gate_1): Linear(896 = 0% Params, 610.14 MMACs = 0% MACs, 229.6 us = 0.01% latency, 5.31 TFLOPS, in_features=128, out_features=7, bias=False)
+          (gate_2): Linear(49 = 0% Params, 33.37 MMACs = 0% MACs, 131.61 us = 0.01% latency, 507.07 GFLOPS, in_features=7, out_features=7, bias=False)
+          (gate_3): Linear(896 = 0% Params, 610.14 MMACs = 0% MACs, 158.55 us = 0.01% latency, 7.7 TFLOPS, in_features=128, out_features=7, bias=False)
+          (act_fn): SiLU(0 = 0% Params, 0 MACs = 0% MACs, 112.06 us = 0% latency, 21.27 GFLOPS)
+          (q_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.34 ms = 0.1% latency, 305.66 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (k_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.3 ms = 0.1% latency, 310.22 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (v_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.84 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (o_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.49 ms = 0.11% latency, 287.14 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (rotary_emb): LlamaRotaryEmbedding(0 = 0% Params, 0 MACs = 0% MACs, 178.81 us = 0.01% latency, 0 FLOPS)
+        )
+        (mlp): LlamaMLP(
+          0 = 0% Params, 2.88 TMACs = 1.84% MACs, 20.06 ms = 0.85% latency, 287 TFLOPS
+          (gate_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 5.98 ms = 0.25% latency, 321 TFLOPS, in_features=4096, out_features=11008, bias=False)
+          (up_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 5.98 ms = 0.25% latency, 320.91 TFLOPS, in_features=4096, out_features=11008, bias=False)
+          (down_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 6.05 ms = 0.26% latency, 317.38 TFLOPS, in_features=11008, out_features=4096, bias=False)
+          (act_fn): SiLU(0 = 0% Params, 0 MACs = 0% MACs, 516.65 us = 0.02% latency, 226.7 GFLOPS)
+        )
+        (input_layernorm): LlamaRMSNorm(4.1 K = 0% Params, 0 MACs = 0% MACs, 1.7 ms = 0.07% latency, 0 FLOPS)
+        (post_attention_layernorm): LlamaRMSNorm(4.1 K = 0% Params, 0 MACs = 0% MACs, 1.72 ms = 0.07% latency, 0 FLOPS)
+      )
+      (3): LlamaDecoderLayer(
+        10.03 K = 0.01% Params, 4.31 TMACs = 2.76% MACs, 64.11 ms = 2.72% latency, 134.4 TFLOPS
+        (self_attn): LlamaFlashAttention2(
+          1.84 K = 0% Params, 1.43 TMACs = 0.91% MACs, 39.82 ms = 1.69% latency, 71.8 TFLOPS
+          (gate_1): Linear(896 = 0% Params, 610.14 MMACs = 0% MACs, 229.36 us = 0.01% latency, 5.32 TFLOPS, in_features=128, out_features=7, bias=False)
+          (gate_2): Linear(49 = 0% Params, 33.37 MMACs = 0% MACs, 200.51 us = 0.01% latency, 332.82 GFLOPS, in_features=7, out_features=7, bias=False)
+          (gate_3): Linear(896 = 0% Params, 610.14 MMACs = 0% MACs, 229.36 us = 0.01% latency, 5.32 TFLOPS, in_features=128, out_features=7, bias=False)
+          (act_fn): SiLU(0 = 0% Params, 0 MACs = 0% MACs, 162.36 us = 0.01% latency, 14.68 GFLOPS)
+          (q_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.31 ms = 0.1% latency, 309.01 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (k_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.34 ms = 0.1% latency, 304.54 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (v_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.32 ms = 0.1% latency, 308.18 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (o_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.39 ms = 0.1% latency, 298.33 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (rotary_emb): LlamaRotaryEmbedding(0 = 0% Params, 0 MACs = 0% MACs, 162.6 us = 0.01% latency, 0 FLOPS)
+        )
+        (mlp): LlamaMLP(
+          0 = 0% Params, 2.88 TMACs = 1.84% MACs, 19.79 ms = 0.84% latency, 290.95 TFLOPS
+          (gate_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 5.93 ms = 0.25% latency, 323.46 TFLOPS, in_features=4096, out_features=11008, bias=False)
+          (up_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 5.93 ms = 0.25% latency, 323.75 TFLOPS, in_features=4096, out_features=11008, bias=False)
+          (down_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 6.01 ms = 0.25% latency, 319.38 TFLOPS, in_features=11008, out_features=4096, bias=False)
+          (act_fn): SiLU(0 = 0% Params, 0 MACs = 0% MACs, 498.77 us = 0.02% latency, 234.83 GFLOPS)
+        )
+        (input_layernorm): LlamaRMSNorm(4.1 K = 0% Params, 0 MACs = 0% MACs, 1.72 ms = 0.07% latency, 0 FLOPS)
+        (post_attention_layernorm): LlamaRMSNorm(4.1 K = 0% Params, 0 MACs = 0% MACs, 1.71 ms = 0.07% latency, 0 FLOPS)
+      )
+      (4): LlamaDecoderLayer(
+        10.03 K = 0.01% Params, 4.31 TMACs = 2.76% MACs, 62.32 ms = 2.64% latency, 138.25 TFLOPS
+        (self_attn): LlamaFlashAttention2(
+          1.84 K = 0% Params, 1.43 TMACs = 0.91% MACs, 38.29 ms = 1.62% latency, 74.66 TFLOPS
+          (gate_1): Linear(896 = 0% Params, 610.14 MMACs = 0% MACs, 203.37 us = 0.01% latency, 6 TFLOPS, in_features=128, out_features=7, bias=False)
+          (gate_2): Linear(49 = 0% Params, 33.37 MMACs = 0% MACs, 139.95 us = 0.01% latency, 476.84 GFLOPS, in_features=7, out_features=7, bias=False)
+          (gate_3): Linear(896 = 0% Params, 610.14 MMACs = 0% MACs, 156.16 us = 0.01% latency, 7.81 TFLOPS, in_features=128, out_features=7, bias=False)
+          (act_fn): SiLU(0 = 0% Params, 0 MACs = 0% MACs, 95.37 us = 0% latency, 24.99 GFLOPS)
+          (q_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.25 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (k_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.3 ms = 0.1% latency, 310.83 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (v_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.77 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (o_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.45 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (rotary_emb): LlamaRotaryEmbedding(0 = 0% Params, 0 MACs = 0% MACs, 123.26 us = 0.01% latency, 0 FLOPS)
+        )
+        (mlp): LlamaMLP(
+          0 = 0% Params, 2.88 TMACs = 1.84% MACs, 19.64 ms = 0.83% latency, 293.06 TFLOPS
+          (gate_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 5.93 ms = 0.25% latency, 323.83 TFLOPS, in_features=4096, out_features=11008, bias=False)
+          (up_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 5.92 ms = 0.25% latency, 323.97 TFLOPS, in_features=4096, out_features=11008, bias=False)
+          (down_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 6 ms = 0.25% latency, 319.95 TFLOPS, in_features=11008, out_features=4096, bias=False)
+          (act_fn): SiLU(0 = 0% Params, 0 MACs = 0% MACs, 483.27 us = 0.02% latency, 242.36 GFLOPS)
+        )
+        (input_layernorm): LlamaRMSNorm(4.1 K = 0% Params, 0 MACs = 0% MACs, 1.69 ms = 0.07% latency, 0 FLOPS)
+        (post_attention_layernorm): LlamaRMSNorm(4.1 K = 0% Params, 0 MACs = 0% MACs, 1.69 ms = 0.07% latency, 0 FLOPS)
+      )
+      (5): LlamaDecoderLayer(
+        10.03 K = 0.01% Params, 4.31 TMACs = 2.76% MACs, 62.06 ms = 2.63% latency, 138.83 TFLOPS
+        (self_attn): LlamaFlashAttention2(
+          1.84 K = 0% Params, 1.43 TMACs = 0.91% MACs, 38.06 ms = 1.61% latency, 75.11 TFLOPS
+          (gate_1): Linear(896 = 0% Params, 610.14 MMACs = 0% MACs, 194.07 us = 0.01% latency, 6.29 TFLOPS, in_features=128, out_features=7, bias=False)
+          (gate_2): Linear(49 = 0% Params, 33.37 MMACs = 0% MACs, 132.32 us = 0.01% latency, 504.33 GFLOPS, in_features=7, out_features=7, bias=False)
+          (gate_3): Linear(896 = 0% Params, 610.14 MMACs = 0% MACs, 157.59 us = 0.01% latency, 7.74 TFLOPS, in_features=128, out_features=7, bias=False)
+          (act_fn): SiLU(0 = 0% Params, 0 MACs = 0% MACs, 93.94 us = 0% latency, 25.37 GFLOPS)
+          (q_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.38 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (k_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.58 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (v_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.61 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (o_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.42 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (rotary_emb): LlamaRotaryEmbedding(0 = 0% Params, 0 MACs = 0% MACs, 126.84 us = 0.01% latency, 0 FLOPS)
+        )
+        (mlp): LlamaMLP(
+          0 = 0% Params, 2.88 TMACs = 1.84% MACs, 19.66 ms = 0.83% latency, 292.89 TFLOPS
+          (gate_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 5.93 ms = 0.25% latency, 323.71 TFLOPS, in_features=4096, out_features=11008, bias=False)
+          (up_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 5.93 ms = 0.25% latency, 323.8 TFLOPS, in_features=4096, out_features=11008, bias=False)
+          (down_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 6 ms = 0.25% latency, 319.69 TFLOPS, in_features=11008, out_features=4096, bias=False)
+          (act_fn): SiLU(0 = 0% Params, 0 MACs = 0% MACs, 483.51 us = 0.02% latency, 242.24 GFLOPS)
+        )
+        (input_layernorm): LlamaRMSNorm(4.1 K = 0% Params, 0 MACs = 0% MACs, 1.7 ms = 0.07% latency, 0 FLOPS)
+        (post_attention_layernorm): LlamaRMSNorm(4.1 K = 0% Params, 0 MACs = 0% MACs, 1.7 ms = 0.07% latency, 0 FLOPS)
+      )
+      (6): LlamaDecoderLayer(
+        10.03 K = 0.01% Params, 4.31 TMACs = 2.76% MACs, 62.12 ms = 2.63% latency, 138.7 TFLOPS
+        (self_attn): LlamaFlashAttention2(
+          1.84 K = 0% Params, 1.43 TMACs = 0.91% MACs, 38.09 ms = 1.62% latency, 75.05 TFLOPS
+          (gate_1): Linear(896 = 0% Params, 610.14 MMACs = 0% MACs, 195.26 us = 0.01% latency, 6.25 TFLOPS, in_features=128, out_features=7, bias=False)
+          (gate_2): Linear(49 = 0% Params, 33.37 MMACs = 0% MACs, 131.37 us = 0.01% latency, 507.99 GFLOPS, in_features=7, out_features=7, bias=False)
+          (gate_3): Linear(896 = 0% Params, 610.14 MMACs = 0% MACs, 155.69 us = 0.01% latency, 7.84 TFLOPS, in_features=128, out_features=7, bias=False)
+          (act_fn): SiLU(0 = 0% Params, 0 MACs = 0% MACs, 95.61 us = 0% latency, 24.93 GFLOPS)
+          (q_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.3 ms = 0.1% latency, 310.06 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (k_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.9 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (v_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.68 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (o_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.35 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (rotary_emb): LlamaRotaryEmbedding(0 = 0% Params, 0 MACs = 0% MACs, 113.49 us = 0% latency, 0 FLOPS)
+        )
+        (mlp): LlamaMLP(
+          0 = 0% Params, 2.88 TMACs = 1.84% MACs, 19.64 ms = 0.83% latency, 293.06 TFLOPS
+          (gate_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 5.93 ms = 0.25% latency, 323.71 TFLOPS, in_features=4096, out_features=11008, bias=False)
+          (up_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 5.92 ms = 0.25% latency, 323.95 TFLOPS, in_features=4096, out_features=11008, bias=False)
+          (down_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 6 ms = 0.25% latency, 319.98 TFLOPS, in_features=11008, out_features=4096, bias=False)
+          (act_fn): SiLU(0 = 0% Params, 0 MACs = 0% MACs, 483.99 us = 0.02% latency, 242 GFLOPS)
+        )
+        (input_layernorm): LlamaRMSNorm(4.1 K = 0% Params, 0 MACs = 0% MACs, 1.7 ms = 0.07% latency, 0 FLOPS)
+        (post_attention_layernorm): LlamaRMSNorm(4.1 K = 0% Params, 0 MACs = 0% MACs, 1.7 ms = 0.07% latency, 0 FLOPS)
+      )
+      (7): LlamaDecoderLayer(
+        10.03 K = 0.01% Params, 4.31 TMACs = 2.76% MACs, 62.07 ms = 2.63% latency, 138.81 TFLOPS
+        (self_attn): LlamaFlashAttention2(
+          1.84 K = 0% Params, 1.43 TMACs = 0.91% MACs, 38.06 ms = 1.61% latency, 75.12 TFLOPS
+          (gate_1): Linear(896 = 0% Params, 610.14 MMACs = 0% MACs, 195.26 us = 0.01% latency, 6.25 TFLOPS, in_features=128, out_features=7, bias=False)
+          (gate_2): Linear(49 = 0% Params, 33.37 MMACs = 0% MACs, 131.37 us = 0.01% latency, 507.99 GFLOPS, in_features=7, out_features=7, bias=False)
+          (gate_3): Linear(896 = 0% Params, 610.14 MMACs = 0% MACs, 157.83 us = 0.01% latency, 7.73 TFLOPS, in_features=128, out_features=7, bias=False)
+          (act_fn): SiLU(0 = 0% Params, 0 MACs = 0% MACs, 93.7 us = 0% latency, 25.44 GFLOPS)
+          (q_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.45 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (k_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.3 ms = 0.1% latency, 310.9 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (v_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.84 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (o_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.25 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (rotary_emb): LlamaRotaryEmbedding(0 = 0% Params, 0 MACs = 0% MACs, 119.21 us = 0.01% latency, 0 FLOPS)
+        )
+        (mlp): LlamaMLP(
+          0 = 0% Params, 2.88 TMACs = 1.84% MACs, 19.66 ms = 0.83% latency, 292.8 TFLOPS
+          (gate_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 5.93 ms = 0.25% latency, 323.67 TFLOPS, in_features=4096, out_features=11008, bias=False)
+          (up_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 5.93 ms = 0.25% latency, 323.75 TFLOPS, in_features=4096, out_features=11008, bias=False)
+          (down_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 6.01 ms = 0.25% latency, 319.42 TFLOPS, in_features=11008, out_features=4096, bias=False)
+          (act_fn): SiLU(0 = 0% Params, 0 MACs = 0% MACs, 485.9 us = 0.02% latency, 241.05 GFLOPS)
+        )
+        (input_layernorm): LlamaRMSNorm(4.1 K = 0% Params, 0 MACs = 0% MACs, 1.69 ms = 0.07% latency, 0 FLOPS)
+        (post_attention_layernorm): LlamaRMSNorm(4.1 K = 0% Params, 0 MACs = 0% MACs, 1.69 ms = 0.07% latency, 0 FLOPS)
+      )
+      (8): LlamaDecoderLayer(
+        10.03 K = 0.01% Params, 4.31 TMACs = 2.76% MACs, 62.11 ms = 2.63% latency, 138.72 TFLOPS
+        (self_attn): LlamaFlashAttention2(
+          1.84 K = 0% Params, 1.43 TMACs = 0.91% MACs, 38.1 ms = 1.62% latency, 75.03 TFLOPS
+          (gate_1): Linear(896 = 0% Params, 610.14 MMACs = 0% MACs, 196.22 us = 0.01% latency, 6.22 TFLOPS, in_features=128, out_features=7, bias=False)
+          (gate_2): Linear(49 = 0% Params, 33.37 MMACs = 0% MACs, 134.23 us = 0.01% latency, 497.16 GFLOPS, in_features=7, out_features=7, bias=False)
+          (gate_3): Linear(896 = 0% Params, 610.14 MMACs = 0% MACs, 156.4 us = 0.01% latency, 7.8 TFLOPS, in_features=128, out_features=7, bias=False)
+          (act_fn): SiLU(0 = 0% Params, 0 MACs = 0% MACs, 95.13 us = 0% latency, 25.05 GFLOPS)
+          (q_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.51 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (k_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.84 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (v_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.55 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (o_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.16 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (rotary_emb): LlamaRotaryEmbedding(0 = 0% Params, 0 MACs = 0% MACs, 113.25 us = 0% latency, 0 FLOPS)
+        )
+        (mlp): LlamaMLP(
+          0 = 0% Params, 2.88 TMACs = 1.84% MACs, 19.66 ms = 0.83% latency, 292.88 TFLOPS
+          (gate_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 5.93 ms = 0.25% latency, 323.84 TFLOPS, in_features=4096, out_features=11008, bias=False)
+          (up_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 5.92 ms = 0.25% latency, 323.88 TFLOPS, in_features=4096, out_features=11008, bias=False)
+          (down_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 6 ms = 0.25% latency, 319.94 TFLOPS, in_features=11008, out_features=4096, bias=False)
+          (act_fn): SiLU(0 = 0% Params, 0 MACs = 0% MACs, 484.7 us = 0.02% latency, 241.64 GFLOPS)
+        )
+        (input_layernorm): LlamaRMSNorm(4.1 K = 0% Params, 0 MACs = 0% MACs, 1.69 ms = 0.07% latency, 0 FLOPS)
+        (post_attention_layernorm): LlamaRMSNorm(4.1 K = 0% Params, 0 MACs = 0% MACs, 1.69 ms = 0.07% latency, 0 FLOPS)
+      )
+      (9): LlamaDecoderLayer(
+        10.03 K = 0.01% Params, 4.31 TMACs = 2.76% MACs, 62.14 ms = 2.63% latency, 138.64 TFLOPS
+        (self_attn): LlamaFlashAttention2(
+          1.84 K = 0% Params, 1.43 TMACs = 0.91% MACs, 38.09 ms = 1.62% latency, 75.05 TFLOPS
+          (gate_1): Linear(896 = 0% Params, 610.14 MMACs = 0% MACs, 198.36 us = 0.01% latency, 6.15 TFLOPS, in_features=128, out_features=7, bias=False)
+          (gate_2): Linear(49 = 0% Params, 33.37 MMACs = 0% MACs, 133.99 us = 0.01% latency, 498.05 GFLOPS, in_features=7, out_features=7, bias=False)
+          (gate_3): Linear(896 = 0% Params, 610.14 MMACs = 0% MACs, 155.93 us = 0.01% latency, 7.83 TFLOPS, in_features=128, out_features=7, bias=False)
+          (act_fn): SiLU(0 = 0% Params, 0 MACs = 0% MACs, 96.32 us = 0% latency, 24.74 GFLOPS)
+          (q_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.35 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (k_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.51 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (v_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.77 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (o_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.42 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (rotary_emb): LlamaRotaryEmbedding(0 = 0% Params, 0 MACs = 0% MACs, 115.63 us = 0% latency, 0 FLOPS)
+        )
+        (mlp): LlamaMLP(
+          0 = 0% Params, 2.88 TMACs = 1.84% MACs, 19.7 ms = 0.84% latency, 292.26 TFLOPS
+          (gate_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 5.93 ms = 0.25% latency, 323.61 TFLOPS, in_features=4096, out_features=11008, bias=False)
+          (up_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 5.92 ms = 0.25% latency, 323.93 TFLOPS, in_features=4096, out_features=11008, bias=False)
+          (down_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 6 ms = 0.25% latency, 319.92 TFLOPS, in_features=11008, out_features=4096, bias=False)
+          (act_fn): SiLU(0 = 0% Params, 0 MACs = 0% MACs, 487.33 us = 0.02% latency, 240.34 GFLOPS)
+        )
+        (input_layernorm): LlamaRMSNorm(4.1 K = 0% Params, 0 MACs = 0% MACs, 1.69 ms = 0.07% latency, 0 FLOPS)
+        (post_attention_layernorm): LlamaRMSNorm(4.1 K = 0% Params, 0 MACs = 0% MACs, 1.7 ms = 0.07% latency, 0 FLOPS)
+      )
+      (10): LlamaDecoderLayer(
+        10.03 K = 0.01% Params, 4.31 TMACs = 2.76% MACs, 62.11 ms = 2.63% latency, 138.72 TFLOPS
+        (self_attn): LlamaFlashAttention2(
+          1.84 K = 0% Params, 1.43 TMACs = 0.91% MACs, 38.09 ms = 1.61% latency, 75.06 TFLOPS
+          (gate_1): Linear(896 = 0% Params, 610.14 MMACs = 0% MACs, 194.07 us = 0.01% latency, 6.29 TFLOPS, in_features=128, out_features=7, bias=False)
+          (gate_2): Linear(49 = 0% Params, 33.37 MMACs = 0% MACs, 133.75 us = 0.01% latency, 498.94 GFLOPS, in_features=7, out_features=7, bias=False)
+          (gate_3): Linear(896 = 0% Params, 610.14 MMACs = 0% MACs, 156.88 us = 0.01% latency, 7.78 TFLOPS, in_features=128, out_features=7, bias=False)
+          (act_fn): SiLU(0 = 0% Params, 0 MACs = 0% MACs, 95.84 us = 0% latency, 24.87 GFLOPS)
+          (q_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.29 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (k_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.77 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (v_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.74 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (o_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.25 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (rotary_emb): LlamaRotaryEmbedding(0 = 0% Params, 0 MACs = 0% MACs, 114.68 us = 0% latency, 0 FLOPS)
+        )
+        (mlp): LlamaMLP(
+          0 = 0% Params, 2.88 TMACs = 1.84% MACs, 19.68 ms = 0.83% latency, 292.58 TFLOPS
+          (gate_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 5.93 ms = 0.25% latency, 323.73 TFLOPS, in_features=4096, out_features=11008, bias=False)
+          (up_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 5.92 ms = 0.25% latency, 323.91 TFLOPS, in_features=4096, out_features=11008, bias=False)
+          (down_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 6 ms = 0.25% latency, 319.84 TFLOPS, in_features=11008, out_features=4096, bias=False)
+          (act_fn): SiLU(0 = 0% Params, 0 MACs = 0% MACs, 489.71 us = 0.02% latency, 239.17 GFLOPS)
+        )
+        (input_layernorm): LlamaRMSNorm(4.1 K = 0% Params, 0 MACs = 0% MACs, 1.69 ms = 0.07% latency, 0 FLOPS)
+        (post_attention_layernorm): LlamaRMSNorm(4.1 K = 0% Params, 0 MACs = 0% MACs, 1.69 ms = 0.07% latency, 0 FLOPS)
+      )
+      (11): LlamaDecoderLayer(
+        10.03 K = 0.01% Params, 4.31 TMACs = 2.76% MACs, 62.04 ms = 2.63% latency, 138.87 TFLOPS
+        (self_attn): LlamaFlashAttention2(
+          1.84 K = 0% Params, 1.43 TMACs = 0.91% MACs, 38.05 ms = 1.61% latency, 75.13 TFLOPS
+          (gate_1): Linear(896 = 0% Params, 610.14 MMACs = 0% MACs, 195.5 us = 0.01% latency, 6.24 TFLOPS, in_features=128, out_features=7, bias=False)
+          (gate_2): Linear(49 = 0% Params, 33.37 MMACs = 0% MACs, 132.56 us = 0.01% latency, 503.42 GFLOPS, in_features=7, out_features=7, bias=False)
+          (gate_3): Linear(896 = 0% Params, 610.14 MMACs = 0% MACs, 157.12 us = 0.01% latency, 7.77 TFLOPS, in_features=128, out_features=7, bias=False)
+          (act_fn): SiLU(0 = 0% Params, 0 MACs = 0% MACs, 94.65 us = 0% latency, 25.18 GFLOPS)
+          (q_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.32 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (k_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.9 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (v_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.51 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (o_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.3 ms = 0.1% latency, 310.8 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (rotary_emb): LlamaRotaryEmbedding(0 = 0% Params, 0 MACs = 0% MACs, 114.44 us = 0% latency, 0 FLOPS)
+        )
+        (mlp): LlamaMLP(
+          0 = 0% Params, 2.88 TMACs = 1.84% MACs, 19.65 ms = 0.83% latency, 292.96 TFLOPS
+          (gate_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 5.93 ms = 0.25% latency, 323.73 TFLOPS, in_features=4096, out_features=11008, bias=False)
+          (up_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 5.93 ms = 0.25% latency, 323.83 TFLOPS, in_features=4096, out_features=11008, bias=False)
+          (down_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 6 ms = 0.25% latency, 320.01 TFLOPS, in_features=11008, out_features=4096, bias=False)
+          (act_fn): SiLU(0 = 0% Params, 0 MACs = 0% MACs, 487.57 us = 0.02% latency, 240.22 GFLOPS)
+        )
+        (input_layernorm): LlamaRMSNorm(4.1 K = 0% Params, 0 MACs = 0% MACs, 1.69 ms = 0.07% latency, 0 FLOPS)
+        (post_attention_layernorm): LlamaRMSNorm(4.1 K = 0% Params, 0 MACs = 0% MACs, 1.69 ms = 0.07% latency, 0 FLOPS)
+      )
+      (12): LlamaDecoderLayer(
+        10.03 K = 0.01% Params, 4.31 TMACs = 2.76% MACs, 62.09 ms = 2.63% latency, 138.77 TFLOPS
+        (self_attn): LlamaFlashAttention2(
+          1.84 K = 0% Params, 1.43 TMACs = 0.91% MACs, 38.09 ms = 1.61% latency, 75.06 TFLOPS
+          (gate_1): Linear(896 = 0% Params, 610.14 MMACs = 0% MACs, 194.79 us = 0.01% latency, 6.26 TFLOPS, in_features=128, out_features=7, bias=False)
+          (gate_2): Linear(49 = 0% Params, 33.37 MMACs = 0% MACs, 131.13 us = 0.01% latency, 508.91 GFLOPS, in_features=7, out_features=7, bias=False)
+          (gate_3): Linear(896 = 0% Params, 610.14 MMACs = 0% MACs, 155.45 us = 0.01% latency, 7.85 TFLOPS, in_features=128, out_features=7, bias=False)
+          (act_fn): SiLU(0 = 0% Params, 0 MACs = 0% MACs, 94.41 us = 0% latency, 25.24 GFLOPS)
+          (q_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.38 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (k_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.3 ms = 0.1% latency, 310.42 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (v_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.71 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (o_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.35 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (rotary_emb): LlamaRotaryEmbedding(0 = 0% Params, 0 MACs = 0% MACs, 113.49 us = 0% latency, 0 FLOPS)
+        )
+        (mlp): LlamaMLP(
+          0 = 0% Params, 2.88 TMACs = 1.84% MACs, 19.65 ms = 0.83% latency, 292.94 TFLOPS
+          (gate_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 5.93 ms = 0.25% latency, 323.61 TFLOPS, in_features=4096, out_features=11008, bias=False)
+          (up_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 5.92 ms = 0.25% latency, 323.88 TFLOPS, in_features=4096, out_features=11008, bias=False)
+          (down_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 6 ms = 0.25% latency, 320.02 TFLOPS, in_features=11008, out_features=4096, bias=False)
+          (act_fn): SiLU(0 = 0% Params, 0 MACs = 0% MACs, 485.42 us = 0.02% latency, 241.29 GFLOPS)
+        )
+        (input_layernorm): LlamaRMSNorm(4.1 K = 0% Params, 0 MACs = 0% MACs, 1.69 ms = 0.07% latency, 0 FLOPS)
+        (post_attention_layernorm): LlamaRMSNorm(4.1 K = 0% Params, 0 MACs = 0% MACs, 1.69 ms = 0.07% latency, 0 FLOPS)
+      )
+      (13): LlamaDecoderLayer(
+        10.03 K = 0.01% Params, 4.31 TMACs = 2.76% MACs, 62.04 ms = 2.63% latency, 138.88 TFLOPS
+        (self_attn): LlamaFlashAttention2(
+          1.84 K = 0% Params, 1.43 TMACs = 0.91% MACs, 38.04 ms = 1.61% latency, 75.15 TFLOPS
+          (gate_1): Linear(896 = 0% Params, 610.14 MMACs = 0% MACs, 193.6 us = 0.01% latency, 6.3 TFLOPS, in_features=128, out_features=7, bias=False)
+          (gate_2): Linear(49 = 0% Params, 33.37 MMACs = 0% MACs, 134.47 us = 0.01% latency, 496.28 GFLOPS, in_features=7, out_features=7, bias=False)
+          (gate_3): Linear(896 = 0% Params, 610.14 MMACs = 0% MACs, 158.31 us = 0.01% latency, 7.71 TFLOPS, in_features=128, out_features=7, bias=False)
+          (act_fn): SiLU(0 = 0% Params, 0 MACs = 0% MACs, 94.18 us = 0% latency, 25.31 GFLOPS)
+          (q_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.38 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (k_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.84 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (v_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.97 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (o_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.38 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (rotary_emb): LlamaRotaryEmbedding(0 = 0% Params, 0 MACs = 0% MACs, 112.77 us = 0% latency, 0 FLOPS)
+        )
+        (mlp): LlamaMLP(
+          0 = 0% Params, 2.88 TMACs = 1.84% MACs, 19.65 ms = 0.83% latency, 292.96 TFLOPS
+          (gate_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 5.93 ms = 0.25% latency, 323.8 TFLOPS, in_features=4096, out_features=11008, bias=False)
+          (up_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 5.93 ms = 0.25% latency, 323.83 TFLOPS, in_features=4096, out_features=11008, bias=False)
+          (down_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 6 ms = 0.25% latency, 319.99 TFLOPS, in_features=11008, out_features=4096, bias=False)
+          (act_fn): SiLU(0 = 0% Params, 0 MACs = 0% MACs, 485.66 us = 0.02% latency, 241.17 GFLOPS)
+        )
+        (input_layernorm): LlamaRMSNorm(4.1 K = 0% Params, 0 MACs = 0% MACs, 1.69 ms = 0.07% latency, 0 FLOPS)
+        (post_attention_layernorm): LlamaRMSNorm(4.1 K = 0% Params, 0 MACs = 0% MACs, 1.69 ms = 0.07% latency, 0 FLOPS)
+      )
+      (14): LlamaDecoderLayer(
+        10.03 K = 0.01% Params, 4.31 TMACs = 2.76% MACs, 62.1 ms = 2.63% latency, 138.75 TFLOPS
+        (self_attn): LlamaFlashAttention2(
+          1.84 K = 0% Params, 1.43 TMACs = 0.91% MACs, 38.1 ms = 1.62% latency, 75.03 TFLOPS
+          (gate_1): Linear(896 = 0% Params, 610.14 MMACs = 0% MACs, 193.36 us = 0.01% latency, 6.31 TFLOPS, in_features=128, out_features=7, bias=False)
+          (gate_2): Linear(49 = 0% Params, 33.37 MMACs = 0% MACs, 132.56 us = 0.01% latency, 503.42 GFLOPS, in_features=7, out_features=7, bias=False)
+          (gate_3): Linear(896 = 0% Params, 610.14 MMACs = 0% MACs, 165.94 us = 0.01% latency, 7.35 TFLOPS, in_features=128, out_features=7, bias=False)
+          (act_fn): SiLU(0 = 0% Params, 0 MACs = 0% MACs, 92.51 us = 0% latency, 25.76 GFLOPS)
+          (q_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.58 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (k_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.48 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (v_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.97 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (o_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.55 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (rotary_emb): LlamaRotaryEmbedding(0 = 0% Params, 0 MACs = 0% MACs, 113.73 us = 0% latency, 0 FLOPS)
+        )
+        (mlp): LlamaMLP(
+          0 = 0% Params, 2.88 TMACs = 1.84% MACs, 19.65 ms = 0.83% latency, 292.94 TFLOPS
+          (gate_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 5.93 ms = 0.25% latency, 323.71 TFLOPS, in_features=4096, out_features=11008, bias=False)
+          (up_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 5.92 ms = 0.25% latency, 323.93 TFLOPS, in_features=4096, out_features=11008, bias=False)
+          (down_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 6 ms = 0.25% latency, 319.92 TFLOPS, in_features=11008, out_features=4096, bias=False)
+          (act_fn): SiLU(0 = 0% Params, 0 MACs = 0% MACs, 484.47 us = 0.02% latency, 241.76 GFLOPS)
+        )
+        (input_layernorm): LlamaRMSNorm(4.1 K = 0% Params, 0 MACs = 0% MACs, 1.69 ms = 0.07% latency, 0 FLOPS)
+        (post_attention_layernorm): LlamaRMSNorm(4.1 K = 0% Params, 0 MACs = 0% MACs, 1.69 ms = 0.07% latency, 0 FLOPS)
+      )
+      (15): LlamaDecoderLayer(
+        10.03 K = 0.01% Params, 4.31 TMACs = 2.76% MACs, 62.01 ms = 2.63% latency, 138.94 TFLOPS
+        (self_attn): LlamaFlashAttention2(
+          1.84 K = 0% Params, 1.43 TMACs = 0.91% MACs, 38.03 ms = 1.61% latency, 75.17 TFLOPS
+          (gate_1): Linear(896 = 0% Params, 610.14 MMACs = 0% MACs, 198.36 us = 0.01% latency, 6.15 TFLOPS, in_features=128, out_features=7, bias=False)
+          (gate_2): Linear(49 = 0% Params, 33.37 MMACs = 0% MACs, 129.94 us = 0.01% latency, 513.58 GFLOPS, in_features=7, out_features=7, bias=False)
+          (gate_3): Linear(896 = 0% Params, 610.14 MMACs = 0% MACs, 157.36 us = 0.01% latency, 7.75 TFLOPS, in_features=128, out_features=7, bias=False)
+          (act_fn): SiLU(0 = 0% Params, 0 MACs = 0% MACs, 92.74 us = 0% latency, 25.7 GFLOPS)
+          (q_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.48 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (k_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.84 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (v_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 312.1 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (o_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.35 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (rotary_emb): LlamaRotaryEmbedding(0 = 0% Params, 0 MACs = 0% MACs, 112.77 us = 0% latency, 0 FLOPS)
+        )
+        (mlp): LlamaMLP(
+          0 = 0% Params, 2.88 TMACs = 1.84% MACs, 19.65 ms = 0.83% latency, 293.02 TFLOPS
+          (gate_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 5.93 ms = 0.25% latency, 323.76 TFLOPS, in_features=4096, out_features=11008, bias=False)
+          (up_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 5.92 ms = 0.25% latency, 323.88 TFLOPS, in_features=4096, out_features=11008, bias=False)
+          (down_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 6 ms = 0.25% latency, 319.89 TFLOPS, in_features=11008, out_features=4096, bias=False)
+          (act_fn): SiLU(0 = 0% Params, 0 MACs = 0% MACs, 483.75 us = 0.02% latency, 242.12 GFLOPS)
+        )
+        (input_layernorm): LlamaRMSNorm(4.1 K = 0% Params, 0 MACs = 0% MACs, 1.69 ms = 0.07% latency, 0 FLOPS)
+        (post_attention_layernorm): LlamaRMSNorm(4.1 K = 0% Params, 0 MACs = 0% MACs, 1.69 ms = 0.07% latency, 0 FLOPS)
+      )
+      (16): LlamaDecoderLayer(
+        10.03 K = 0.01% Params, 4.31 TMACs = 2.76% MACs, 62.05 ms = 2.63% latency, 138.85 TFLOPS
+        (self_attn): LlamaFlashAttention2(
+          1.84 K = 0% Params, 1.43 TMACs = 0.91% MACs, 38.05 ms = 1.61% latency, 75.14 TFLOPS
+          (gate_1): Linear(896 = 0% Params, 610.14 MMACs = 0% MACs, 194.55 us = 0.01% latency, 6.27 TFLOPS, in_features=128, out_features=7, bias=False)
+          (gate_2): Linear(49 = 0% Params, 33.37 MMACs = 0% MACs, 131.85 us = 0.01% latency, 506.15 GFLOPS, in_features=7, out_features=7, bias=False)
+          (gate_3): Linear(896 = 0% Params, 610.14 MMACs = 0% MACs, 156.88 us = 0.01% latency, 7.78 TFLOPS, in_features=128, out_features=7, bias=False)
+          (act_fn): SiLU(0 = 0% Params, 0 MACs = 0% MACs, 94.89 us = 0% latency, 25.12 GFLOPS)
+          (q_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.55 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (k_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.68 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (v_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.81 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (o_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.3 ms = 0.1% latency, 311 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (rotary_emb): LlamaRotaryEmbedding(0 = 0% Params, 0 MACs = 0% MACs, 113.01 us = 0% latency, 0 FLOPS)
+        )
+        (mlp): LlamaMLP(
+          0 = 0% Params, 2.88 TMACs = 1.84% MACs, 19.66 ms = 0.83% latency, 292.78 TFLOPS
+          (gate_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 5.93 ms = 0.25% latency, 323.69 TFLOPS, in_features=4096, out_features=11008, bias=False)
+          (up_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 5.93 ms = 0.25% latency, 323.58 TFLOPS, in_features=4096, out_features=11008, bias=False)
+          (down_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 6 ms = 0.25% latency, 320.04 TFLOPS, in_features=11008, out_features=4096, bias=False)
+          (act_fn): SiLU(0 = 0% Params, 0 MACs = 0% MACs, 483.27 us = 0.02% latency, 242.36 GFLOPS)
+        )
+        (input_layernorm): LlamaRMSNorm(4.1 K = 0% Params, 0 MACs = 0% MACs, 1.69 ms = 0.07% latency, 0 FLOPS)
+        (post_attention_layernorm): LlamaRMSNorm(4.1 K = 0% Params, 0 MACs = 0% MACs, 1.69 ms = 0.07% latency, 0 FLOPS)
+      )
+      (17): LlamaDecoderLayer(
+        10.03 K = 0.01% Params, 4.31 TMACs = 2.76% MACs, 62.02 ms = 2.63% latency, 138.92 TFLOPS
+        (self_attn): LlamaFlashAttention2(
+          1.84 K = 0% Params, 1.43 TMACs = 0.91% MACs, 38.04 ms = 1.61% latency, 75.14 TFLOPS
+          (gate_1): Linear(896 = 0% Params, 610.14 MMACs = 0% MACs, 195.74 us = 0.01% latency, 6.23 TFLOPS, in_features=128, out_features=7, bias=False)
+          (gate_2): Linear(49 = 0% Params, 33.37 MMACs = 0% MACs, 130.89 us = 0.01% latency, 509.84 GFLOPS, in_features=7, out_features=7, bias=False)
+          (gate_3): Linear(896 = 0% Params, 610.14 MMACs = 0% MACs, 154.97 us = 0.01% latency, 7.87 TFLOPS, in_features=128, out_features=7, bias=False)
+          (act_fn): SiLU(0 = 0% Params, 0 MACs = 0% MACs, 94.41 us = 0% latency, 25.24 GFLOPS)
+          (q_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.19 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (k_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.87 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (v_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.68 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (o_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.45 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (rotary_emb): LlamaRotaryEmbedding(0 = 0% Params, 0 MACs = 0% MACs, 112.06 us = 0% latency, 0 FLOPS)
+        )
+        (mlp): LlamaMLP(
+          0 = 0% Params, 2.88 TMACs = 1.84% MACs, 19.64 ms = 0.83% latency, 293.09 TFLOPS
+          (gate_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 5.93 ms = 0.25% latency, 323.7 TFLOPS, in_features=4096, out_features=11008, bias=False)
+          (up_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 5.92 ms = 0.25% latency, 323.91 TFLOPS, in_features=4096, out_features=11008, bias=False)
+          (down_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 6 ms = 0.25% latency, 319.97 TFLOPS, in_features=11008, out_features=4096, bias=False)
+          (act_fn): SiLU(0 = 0% Params, 0 MACs = 0% MACs, 483.27 us = 0.02% latency, 242.36 GFLOPS)
+        )
+        (input_layernorm): LlamaRMSNorm(4.1 K = 0% Params, 0 MACs = 0% MACs, 1.69 ms = 0.07% latency, 0 FLOPS)
+        (post_attention_layernorm): LlamaRMSNorm(4.1 K = 0% Params, 0 MACs = 0% MACs, 1.69 ms = 0.07% latency, 0 FLOPS)
+      )
+      (18): LlamaDecoderLayer(
+        10.03 K = 0.01% Params, 4.31 TMACs = 2.76% MACs, 62.07 ms = 2.63% latency, 138.81 TFLOPS
+        (self_attn): LlamaFlashAttention2(
+          1.84 K = 0% Params, 1.43 TMACs = 0.91% MACs, 38.06 ms = 1.61% latency, 75.12 TFLOPS
+          (gate_1): Linear(896 = 0% Params, 610.14 MMACs = 0% MACs, 194.79 us = 0.01% latency, 6.26 TFLOPS, in_features=128, out_features=7, bias=False)
+          (gate_2): Linear(49 = 0% Params, 33.37 MMACs = 0% MACs, 130.89 us = 0.01% latency, 509.84 GFLOPS, in_features=7, out_features=7, bias=False)
+          (gate_3): Linear(896 = 0% Params, 610.14 MMACs = 0% MACs, 156.64 us = 0.01% latency, 7.79 TFLOPS, in_features=128, out_features=7, bias=False)
+          (act_fn): SiLU(0 = 0% Params, 0 MACs = 0% MACs, 94.41 us = 0% latency, 25.24 GFLOPS)
+          (q_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.22 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (k_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.58 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (v_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.55 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (o_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.61 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (rotary_emb): LlamaRotaryEmbedding(0 = 0% Params, 0 MACs = 0% MACs, 121.83 us = 0.01% latency, 0 FLOPS)
+        )
+        (mlp): LlamaMLP(
+          0 = 0% Params, 2.88 TMACs = 1.84% MACs, 19.66 ms = 0.83% latency, 292.84 TFLOPS
+          (gate_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 5.93 ms = 0.25% latency, 323.76 TFLOPS, in_features=4096, out_features=11008, bias=False)
+          (up_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 5.93 ms = 0.25% latency, 323.8 TFLOPS, in_features=4096, out_features=11008, bias=False)
+          (down_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 6 ms = 0.25% latency, 319.98 TFLOPS, in_features=11008, out_features=4096, bias=False)
+          (act_fn): SiLU(0 = 0% Params, 0 MACs = 0% MACs, 483.99 us = 0.02% latency, 242 GFLOPS)
+        )
+        (input_layernorm): LlamaRMSNorm(4.1 K = 0% Params, 0 MACs = 0% MACs, 1.69 ms = 0.07% latency, 0 FLOPS)
+        (post_attention_layernorm): LlamaRMSNorm(4.1 K = 0% Params, 0 MACs = 0% MACs, 1.69 ms = 0.07% latency, 0 FLOPS)
+      )
+      (19): LlamaDecoderLayer(
+        10.03 K = 0.01% Params, 4.31 TMACs = 2.76% MACs, 62.06 ms = 2.63% latency, 138.84 TFLOPS
+        (self_attn): LlamaFlashAttention2(
+          1.84 K = 0% Params, 1.43 TMACs = 0.91% MACs, 38.06 ms = 1.61% latency, 75.11 TFLOPS
+          (gate_1): Linear(896 = 0% Params, 610.14 MMACs = 0% MACs, 195.74 us = 0.01% latency, 6.23 TFLOPS, in_features=128, out_features=7, bias=False)
+          (gate_2): Linear(49 = 0% Params, 33.37 MMACs = 0% MACs, 142.81 us = 0.01% latency, 467.28 GFLOPS, in_features=7, out_features=7, bias=False)
+          (gate_3): Linear(896 = 0% Params, 610.14 MMACs = 0% MACs, 156.88 us = 0.01% latency, 7.78 TFLOPS, in_features=128, out_features=7, bias=False)
+          (act_fn): SiLU(0 = 0% Params, 0 MACs = 0% MACs, 92.74 us = 0% latency, 25.7 GFLOPS)
+          (q_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.3 ms = 0.1% latency, 309.9 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (k_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.9 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (v_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.77 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (o_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.38 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (rotary_emb): LlamaRotaryEmbedding(0 = 0% Params, 0 MACs = 0% MACs, 113.96 us = 0% latency, 0 FLOPS)
+        )
+        (mlp): LlamaMLP(
+          0 = 0% Params, 2.88 TMACs = 1.84% MACs, 19.66 ms = 0.83% latency, 292.8 TFLOPS
+          (gate_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 5.93 ms = 0.25% latency, 323.75 TFLOPS, in_features=4096, out_features=11008, bias=False)
+          (up_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 5.92 ms = 0.25% latency, 323.92 TFLOPS, in_features=4096, out_features=11008, bias=False)
+          (down_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 6 ms = 0.25% latency, 319.89 TFLOPS, in_features=11008, out_features=4096, bias=False)
+          (act_fn): SiLU(0 = 0% Params, 0 MACs = 0% MACs, 484.7 us = 0.02% latency, 241.64 GFLOPS)
+        )
+        (input_layernorm): LlamaRMSNorm(4.1 K = 0% Params, 0 MACs = 0% MACs, 1.69 ms = 0.07% latency, 0 FLOPS)
+        (post_attention_layernorm): LlamaRMSNorm(4.1 K = 0% Params, 0 MACs = 0% MACs, 1.69 ms = 0.07% latency, 0 FLOPS)
+      )
+      (20): LlamaDecoderLayer(
+        10.03 K = 0.01% Params, 4.31 TMACs = 2.76% MACs, 62.03 ms = 2.63% latency, 138.9 TFLOPS
+        (self_attn): LlamaFlashAttention2(
+          1.84 K = 0% Params, 1.43 TMACs = 0.91% MACs, 38.04 ms = 1.61% latency, 75.15 TFLOPS
+          (gate_1): Linear(896 = 0% Params, 610.14 MMACs = 0% MACs, 199.08 us = 0.01% latency, 6.13 TFLOPS, in_features=128, out_features=7, bias=False)
+          (gate_2): Linear(49 = 0% Params, 33.37 MMACs = 0% MACs, 131.85 us = 0.01% latency, 506.15 GFLOPS, in_features=7, out_features=7, bias=False)
+          (gate_3): Linear(896 = 0% Params, 610.14 MMACs = 0% MACs, 155.93 us = 0.01% latency, 7.83 TFLOPS, in_features=128, out_features=7, bias=False)
+          (act_fn): SiLU(0 = 0% Params, 0 MACs = 0% MACs, 94.41 us = 0% latency, 25.24 GFLOPS)
+          (q_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.38 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (k_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.45 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (v_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.81 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (o_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.38 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (rotary_emb): LlamaRotaryEmbedding(0 = 0% Params, 0 MACs = 0% MACs, 113.73 us = 0% latency, 0 FLOPS)
+        )
+        (mlp): LlamaMLP(
+          0 = 0% Params, 2.88 TMACs = 1.84% MACs, 19.65 ms = 0.83% latency, 292.98 TFLOPS
+          (gate_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 5.93 ms = 0.25% latency, 323.79 TFLOPS, in_features=4096, out_features=11008, bias=False)
+          (up_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 5.93 ms = 0.25% latency, 323.87 TFLOPS, in_features=4096, out_features=11008, bias=False)
+          (down_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 6 ms = 0.25% latency, 319.97 TFLOPS, in_features=11008, out_features=4096, bias=False)
+          (act_fn): SiLU(0 = 0% Params, 0 MACs = 0% MACs, 484.94 us = 0.02% latency, 241.52 GFLOPS)
+        )
+        (input_layernorm): LlamaRMSNorm(4.1 K = 0% Params, 0 MACs = 0% MACs, 1.69 ms = 0.07% latency, 0 FLOPS)
+        (post_attention_layernorm): LlamaRMSNorm(4.1 K = 0% Params, 0 MACs = 0% MACs, 1.69 ms = 0.07% latency, 0 FLOPS)
+      )
+      (21): LlamaDecoderLayer(
+        10.03 K = 0.01% Params, 4.31 TMACs = 2.76% MACs, 62.03 ms = 2.63% latency, 138.9 TFLOPS
+        (self_attn): LlamaFlashAttention2(
+          1.84 K = 0% Params, 1.43 TMACs = 0.91% MACs, 38.04 ms = 1.61% latency, 75.15 TFLOPS
+          (gate_1): Linear(896 = 0% Params, 610.14 MMACs = 0% MACs, 195.98 us = 0.01% latency, 6.23 TFLOPS, in_features=128, out_features=7, bias=False)
+          (gate_2): Linear(49 = 0% Params, 33.37 MMACs = 0% MACs, 133.75 us = 0.01% latency, 498.94 GFLOPS, in_features=7, out_features=7, bias=False)
+          (gate_3): Linear(896 = 0% Params, 610.14 MMACs = 0% MACs, 155.69 us = 0.01% latency, 7.84 TFLOPS, in_features=128, out_features=7, bias=False)
+          (act_fn): SiLU(0 = 0% Params, 0 MACs = 0% MACs, 94.41 us = 0% latency, 25.24 GFLOPS)
+          (q_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.42 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (k_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.61 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (v_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.64 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (o_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.38 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (rotary_emb): LlamaRotaryEmbedding(0 = 0% Params, 0 MACs = 0% MACs, 113.25 us = 0% latency, 0 FLOPS)
+        )
+        (mlp): LlamaMLP(
+          0 = 0% Params, 2.88 TMACs = 1.84% MACs, 19.65 ms = 0.83% latency, 293.03 TFLOPS
+          (gate_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 5.93 ms = 0.25% latency, 323.71 TFLOPS, in_features=4096, out_features=11008, bias=False)
+          (up_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 5.93 ms = 0.25% latency, 323.87 TFLOPS, in_features=4096, out_features=11008, bias=False)
+          (down_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 6 ms = 0.25% latency, 319.97 TFLOPS, in_features=11008, out_features=4096, bias=False)
+          (act_fn): SiLU(0 = 0% Params, 0 MACs = 0% MACs, 483.75 us = 0.02% latency, 242.12 GFLOPS)
+        )
+        (input_layernorm): LlamaRMSNorm(4.1 K = 0% Params, 0 MACs = 0% MACs, 1.69 ms = 0.07% latency, 0 FLOPS)
+        (post_attention_layernorm): LlamaRMSNorm(4.1 K = 0% Params, 0 MACs = 0% MACs, 1.69 ms = 0.07% latency, 0 FLOPS)
+      )
+      (22): LlamaDecoderLayer(
+        10.03 K = 0.01% Params, 4.31 TMACs = 2.76% MACs, 61.98 ms = 2.63% latency, 139.01 TFLOPS
+        (self_attn): LlamaFlashAttention2(
+          1.84 K = 0% Params, 1.43 TMACs = 0.91% MACs, 38.01 ms = 1.61% latency, 75.21 TFLOPS
+          (gate_1): Linear(896 = 0% Params, 610.14 MMACs = 0% MACs, 195.74 us = 0.01% latency, 6.23 TFLOPS, in_features=128, out_features=7, bias=False)
+          (gate_2): Linear(49 = 0% Params, 33.37 MMACs = 0% MACs, 128.75 us = 0.01% latency, 518.34 GFLOPS, in_features=7, out_features=7, bias=False)
+          (gate_3): Linear(896 = 0% Params, 610.14 MMACs = 0% MACs, 155.45 us = 0.01% latency, 7.85 TFLOPS, in_features=128, out_features=7, bias=False)
+          (act_fn): SiLU(0 = 0% Params, 0 MACs = 0% MACs, 93.22 us = 0% latency, 25.57 GFLOPS)
+          (q_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.29 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (k_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.35 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (v_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.55 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (o_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.25 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (rotary_emb): LlamaRotaryEmbedding(0 = 0% Params, 0 MACs = 0% MACs, 111.34 us = 0% latency, 0 FLOPS)
+        )
+        (mlp): LlamaMLP(
+          0 = 0% Params, 2.88 TMACs = 1.84% MACs, 19.64 ms = 0.83% latency, 293.16 TFLOPS
+          (gate_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 5.93 ms = 0.25% latency, 323.78 TFLOPS, in_features=4096, out_features=11008, bias=False)
+          (up_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 5.93 ms = 0.25% latency, 323.84 TFLOPS, in_features=4096, out_features=11008, bias=False)
+          (down_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 6 ms = 0.25% latency, 319.94 TFLOPS, in_features=11008, out_features=4096, bias=False)
+          (act_fn): SiLU(0 = 0% Params, 0 MACs = 0% MACs, 485.66 us = 0.02% latency, 241.17 GFLOPS)
+        )
+        (input_layernorm): LlamaRMSNorm(4.1 K = 0% Params, 0 MACs = 0% MACs, 1.69 ms = 0.07% latency, 0 FLOPS)
+        (post_attention_layernorm): LlamaRMSNorm(4.1 K = 0% Params, 0 MACs = 0% MACs, 1.69 ms = 0.07% latency, 0 FLOPS)
+      )
+      (23): LlamaDecoderLayer(
+        10.03 K = 0.01% Params, 4.31 TMACs = 2.76% MACs, 62.02 ms = 2.63% latency, 138.92 TFLOPS
+        (self_attn): LlamaFlashAttention2(
+          1.84 K = 0% Params, 1.43 TMACs = 0.91% MACs, 38.02 ms = 1.61% latency, 75.18 TFLOPS
+          (gate_1): Linear(896 = 0% Params, 610.14 MMACs = 0% MACs, 193.6 us = 0.01% latency, 6.3 TFLOPS, in_features=128, out_features=7, bias=False)
+          (gate_2): Linear(49 = 0% Params, 33.37 MMACs = 0% MACs, 129.7 us = 0.01% latency, 514.53 GFLOPS, in_features=7, out_features=7, bias=False)
+          (gate_3): Linear(896 = 0% Params, 610.14 MMACs = 0% MACs, 156.16 us = 0.01% latency, 7.81 TFLOPS, in_features=128, out_features=7, bias=False)
+          (act_fn): SiLU(0 = 0% Params, 0 MACs = 0% MACs, 95.13 us = 0% latency, 25.05 GFLOPS)
+          (q_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.74 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (k_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.81 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (v_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.9 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (o_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.58 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (rotary_emb): LlamaRotaryEmbedding(0 = 0% Params, 0 MACs = 0% MACs, 111.1 us = 0% latency, 0 FLOPS)
+        )
+        (mlp): LlamaMLP(
+          0 = 0% Params, 2.88 TMACs = 1.84% MACs, 19.66 ms = 0.83% latency, 292.83 TFLOPS
+          (gate_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 5.93 ms = 0.25% latency, 323.74 TFLOPS, in_features=4096, out_features=11008, bias=False)
+          (up_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 5.92 ms = 0.25% latency, 323.99 TFLOPS, in_features=4096, out_features=11008, bias=False)
+          (down_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 6 ms = 0.25% latency, 320.02 TFLOPS, in_features=11008, out_features=4096, bias=False)
+          (act_fn): SiLU(0 = 0% Params, 0 MACs = 0% MACs, 483.75 us = 0.02% latency, 242.12 GFLOPS)
+        )
+        (input_layernorm): LlamaRMSNorm(4.1 K = 0% Params, 0 MACs = 0% MACs, 1.69 ms = 0.07% latency, 0 FLOPS)
+        (post_attention_layernorm): LlamaRMSNorm(4.1 K = 0% Params, 0 MACs = 0% MACs, 1.69 ms = 0.07% latency, 0 FLOPS)
+      )
+      (24): LlamaDecoderLayer(
+        10.03 K = 0.01% Params, 4.31 TMACs = 2.76% MACs, 62.05 ms = 2.63% latency, 138.86 TFLOPS
+        (self_attn): LlamaFlashAttention2(
+          1.84 K = 0% Params, 1.43 TMACs = 0.91% MACs, 38.06 ms = 1.61% latency, 75.11 TFLOPS
+          (gate_1): Linear(896 = 0% Params, 610.14 MMACs = 0% MACs, 195.03 us = 0.01% latency, 6.26 TFLOPS, in_features=128, out_features=7, bias=False)
+          (gate_2): Linear(49 = 0% Params, 33.37 MMACs = 0% MACs, 132.56 us = 0.01% latency, 503.42 GFLOPS, in_features=7, out_features=7, bias=False)
+          (gate_3): Linear(896 = 0% Params, 610.14 MMACs = 0% MACs, 159.5 us = 0.01% latency, 7.65 TFLOPS, in_features=128, out_features=7, bias=False)
+          (act_fn): SiLU(0 = 0% Params, 0 MACs = 0% MACs, 94.65 us = 0% latency, 25.18 GFLOPS)
+          (q_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.35 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (k_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.74 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (v_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.97 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (o_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.32 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (rotary_emb): LlamaRotaryEmbedding(0 = 0% Params, 0 MACs = 0% MACs, 113.96 us = 0% latency, 0 FLOPS)
+        )
+        (mlp): LlamaMLP(
+          0 = 0% Params, 2.88 TMACs = 1.84% MACs, 19.65 ms = 0.83% latency, 292.93 TFLOPS
+          (gate_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 5.93 ms = 0.25% latency, 323.61 TFLOPS, in_features=4096, out_features=11008, bias=False)
+          (up_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 5.92 ms = 0.25% latency, 323.91 TFLOPS, in_features=4096, out_features=11008, bias=False)
+          (down_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 6 ms = 0.25% latency, 320.02 TFLOPS, in_features=11008, out_features=4096, bias=False)
+          (act_fn): SiLU(0 = 0% Params, 0 MACs = 0% MACs, 485.42 us = 0.02% latency, 241.29 GFLOPS)
+        )
+        (input_layernorm): LlamaRMSNorm(4.1 K = 0% Params, 0 MACs = 0% MACs, 1.69 ms = 0.07% latency, 0 FLOPS)
+        (post_attention_layernorm): LlamaRMSNorm(4.1 K = 0% Params, 0 MACs = 0% MACs, 1.69 ms = 0.07% latency, 0 FLOPS)
+      )
+      (25): LlamaDecoderLayer(
+        10.03 K = 0.01% Params, 4.31 TMACs = 2.76% MACs, 62.16 ms = 2.64% latency, 138.61 TFLOPS
+        (self_attn): LlamaFlashAttention2(
+          1.84 K = 0% Params, 1.43 TMACs = 0.91% MACs, 38.09 ms = 1.62% latency, 75.05 TFLOPS
+          (gate_1): Linear(896 = 0% Params, 610.14 MMACs = 0% MACs, 196.93 us = 0.01% latency, 6.2 TFLOPS, in_features=128, out_features=7, bias=False)
+          (gate_2): Linear(49 = 0% Params, 33.37 MMACs = 0% MACs, 135.42 us = 0.01% latency, 492.79 GFLOPS, in_features=7, out_features=7, bias=False)
+          (gate_3): Linear(896 = 0% Params, 610.14 MMACs = 0% MACs, 167.13 us = 0.01% latency, 7.3 TFLOPS, in_features=128, out_features=7, bias=False)
+          (act_fn): SiLU(0 = 0% Params, 0 MACs = 0% MACs, 101.8 us = 0% latency, 23.41 GFLOPS)
+          (q_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.32 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (k_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.61 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (v_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.84 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (o_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.45 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (rotary_emb): LlamaRotaryEmbedding(0 = 0% Params, 0 MACs = 0% MACs, 111.34 us = 0% latency, 0 FLOPS)
+        )
+        (mlp): LlamaMLP(
+          0 = 0% Params, 2.88 TMACs = 1.84% MACs, 19.67 ms = 0.83% latency, 292.61 TFLOPS
+          (gate_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 5.93 ms = 0.25% latency, 323.83 TFLOPS, in_features=4096, out_features=11008, bias=False)
+          (up_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 5.92 ms = 0.25% latency, 323.89 TFLOPS, in_features=4096, out_features=11008, bias=False)
+          (down_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 6.01 ms = 0.25% latency, 319.47 TFLOPS, in_features=11008, out_features=4096, bias=False)
+          (act_fn): SiLU(0 = 0% Params, 0 MACs = 0% MACs, 482.32 us = 0.02% latency, 242.84 GFLOPS)
+        )
+        (input_layernorm): LlamaRMSNorm(4.1 K = 0% Params, 0 MACs = 0% MACs, 1.69 ms = 0.07% latency, 0 FLOPS)
+        (post_attention_layernorm): LlamaRMSNorm(4.1 K = 0% Params, 0 MACs = 0% MACs, 1.69 ms = 0.07% latency, 0 FLOPS)
+      )
+      (26): LlamaDecoderLayer(
+        10.03 K = 0.01% Params, 4.31 TMACs = 2.76% MACs, 62.01 ms = 2.63% latency, 138.94 TFLOPS
+        (self_attn): LlamaFlashAttention2(
+          1.84 K = 0% Params, 1.43 TMACs = 0.91% MACs, 38.07 ms = 1.61% latency, 75.08 TFLOPS
+          (gate_1): Linear(896 = 0% Params, 610.14 MMACs = 0% MACs, 194.31 us = 0.01% latency, 6.28 TFLOPS, in_features=128, out_features=7, bias=False)
+          (gate_2): Linear(49 = 0% Params, 33.37 MMACs = 0% MACs, 131.85 us = 0.01% latency, 506.15 GFLOPS, in_features=7, out_features=7, bias=False)
+          (gate_3): Linear(896 = 0% Params, 610.14 MMACs = 0% MACs, 155.69 us = 0.01% latency, 7.84 TFLOPS, in_features=128, out_features=7, bias=False)
+          (act_fn): SiLU(0 = 0% Params, 0 MACs = 0% MACs, 93.7 us = 0% latency, 25.44 GFLOPS)
+          (q_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.32 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (k_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.9 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (v_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.77 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (o_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.29 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (rotary_emb): LlamaRotaryEmbedding(0 = 0% Params, 0 MACs = 0% MACs, 115.63 us = 0% latency, 0 FLOPS)
+        )
+        (mlp): LlamaMLP(
+          0 = 0% Params, 2.88 TMACs = 1.84% MACs, 19.6 ms = 0.83% latency, 293.74 TFLOPS
+          (gate_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 5.93 ms = 0.25% latency, 323.45 TFLOPS, in_features=4096, out_features=11008, bias=False)
+          (up_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 5.92 ms = 0.25% latency, 323.95 TFLOPS, in_features=4096, out_features=11008, bias=False)
+          (down_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 6 ms = 0.25% latency, 319.94 TFLOPS, in_features=11008, out_features=4096, bias=False)
+          (act_fn): SiLU(0 = 0% Params, 0 MACs = 0% MACs, 483.99 us = 0.02% latency, 242 GFLOPS)
+        )
+        (input_layernorm): LlamaRMSNorm(4.1 K = 0% Params, 0 MACs = 0% MACs, 1.69 ms = 0.07% latency, 0 FLOPS)
+        (post_attention_layernorm): LlamaRMSNorm(4.1 K = 0% Params, 0 MACs = 0% MACs, 1.69 ms = 0.07% latency, 0 FLOPS)
+      )
+      (27): LlamaDecoderLayer(
+        10.03 K = 0.01% Params, 4.31 TMACs = 2.76% MACs, 62.1 ms = 2.63% latency, 138.74 TFLOPS
+        (self_attn): LlamaFlashAttention2(
+          1.84 K = 0% Params, 1.43 TMACs = 0.91% MACs, 38.27 ms = 1.62% latency, 74.69 TFLOPS
+          (gate_1): Linear(896 = 0% Params, 610.14 MMACs = 0% MACs, 195.03 us = 0.01% latency, 6.26 TFLOPS, in_features=128, out_features=7, bias=False)
+          (gate_2): Linear(49 = 0% Params, 33.37 MMACs = 0% MACs, 132.08 us = 0.01% latency, 505.24 GFLOPS, in_features=7, out_features=7, bias=False)
+          (gate_3): Linear(896 = 0% Params, 610.14 MMACs = 0% MACs, 157.12 us = 0.01% latency, 7.77 TFLOPS, in_features=128, out_features=7, bias=False)
+          (act_fn): SiLU(0 = 0% Params, 0 MACs = 0% MACs, 95.84 us = 0% latency, 24.87 GFLOPS)
+          (q_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.48 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (k_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.61 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (v_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.71 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (o_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.3 ms = 0.1% latency, 310.8 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (rotary_emb): LlamaRotaryEmbedding(0 = 0% Params, 0 MACs = 0% MACs, 113.49 us = 0% latency, 0 FLOPS)
+        )
+        (mlp): LlamaMLP(
+          0 = 0% Params, 2.88 TMACs = 1.84% MACs, 19.59 ms = 0.83% latency, 293.91 TFLOPS
+          (gate_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 5.93 ms = 0.25% latency, 323.75 TFLOPS, in_features=4096, out_features=11008, bias=False)
+          (up_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 5.92 ms = 0.25% latency, 324.01 TFLOPS, in_features=4096, out_features=11008, bias=False)
+          (down_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 6 ms = 0.25% latency, 319.92 TFLOPS, in_features=11008, out_features=4096, bias=False)
+          (act_fn): SiLU(0 = 0% Params, 0 MACs = 0% MACs, 484.23 us = 0.02% latency, 241.88 GFLOPS)
+        )
+        (input_layernorm): LlamaRMSNorm(4.1 K = 0% Params, 0 MACs = 0% MACs, 1.7 ms = 0.07% latency, 0 FLOPS)
+        (post_attention_layernorm): LlamaRMSNorm(4.1 K = 0% Params, 0 MACs = 0% MACs, 1.69 ms = 0.07% latency, 0 FLOPS)
+      )
+      (28): LlamaDecoderLayer(
+        10.03 K = 0.01% Params, 4.31 TMACs = 2.76% MACs, 61.76 ms = 2.62% latency, 139.49 TFLOPS
+        (self_attn): LlamaFlashAttention2(
+          1.84 K = 0% Params, 1.43 TMACs = 0.91% MACs, 38.02 ms = 1.61% latency, 75.2 TFLOPS
+          (gate_1): Linear(896 = 0% Params, 610.14 MMACs = 0% MACs, 195.98 us = 0.01% latency, 6.23 TFLOPS, in_features=128, out_features=7, bias=False)
+          (gate_2): Linear(49 = 0% Params, 33.37 MMACs = 0% MACs, 132.56 us = 0.01% latency, 503.42 GFLOPS, in_features=7, out_features=7, bias=False)
+          (gate_3): Linear(896 = 0% Params, 610.14 MMACs = 0% MACs, 156.4 us = 0.01% latency, 7.8 TFLOPS, in_features=128, out_features=7, bias=False)
+          (act_fn): SiLU(0 = 0% Params, 0 MACs = 0% MACs, 94.41 us = 0% latency, 25.24 GFLOPS)
+          (q_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.71 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (k_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 312.36 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (v_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 312.33 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (o_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.51 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (rotary_emb): LlamaRotaryEmbedding(0 = 0% Params, 0 MACs = 0% MACs, 112.77 us = 0% latency, 0 FLOPS)
+        )
+        (mlp): LlamaMLP(
+          0 = 0% Params, 2.88 TMACs = 1.84% MACs, 19.53 ms = 0.83% latency, 294.82 TFLOPS
+          (gate_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 5.93 ms = 0.25% latency, 323.75 TFLOPS, in_features=4096, out_features=11008, bias=False)
+          (up_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 5.92 ms = 0.25% latency, 323.97 TFLOPS, in_features=4096, out_features=11008, bias=False)
+          (down_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 6 ms = 0.25% latency, 320.09 TFLOPS, in_features=11008, out_features=4096, bias=False)
+          (act_fn): SiLU(0 = 0% Params, 0 MACs = 0% MACs, 482.08 us = 0.02% latency, 242.96 GFLOPS)
+        )
+        (input_layernorm): LlamaRMSNorm(4.1 K = 0% Params, 0 MACs = 0% MACs, 1.69 ms = 0.07% latency, 0 FLOPS)
+        (post_attention_layernorm): LlamaRMSNorm(4.1 K = 0% Params, 0 MACs = 0% MACs, 1.69 ms = 0.07% latency, 0 FLOPS)
+      )
+      (29): LlamaDecoderLayer(
+        10.03 K = 0.01% Params, 4.31 TMACs = 2.76% MACs, 61.77 ms = 2.62% latency, 139.47 TFLOPS
+        (self_attn): LlamaFlashAttention2(
+          1.84 K = 0% Params, 1.43 TMACs = 0.91% MACs, 38.03 ms = 1.61% latency, 75.17 TFLOPS
+          (gate_1): Linear(896 = 0% Params, 610.14 MMACs = 0% MACs, 194.79 us = 0.01% latency, 6.26 TFLOPS, in_features=128, out_features=7, bias=False)
+          (gate_2): Linear(49 = 0% Params, 33.37 MMACs = 0% MACs, 129.7 us = 0.01% latency, 514.53 GFLOPS, in_features=7, out_features=7, bias=False)
+          (gate_3): Linear(896 = 0% Params, 610.14 MMACs = 0% MACs, 154.73 us = 0.01% latency, 7.89 TFLOPS, in_features=128, out_features=7, bias=False)
+          (act_fn): SiLU(0 = 0% Params, 0 MACs = 0% MACs, 92.98 us = 0% latency, 25.63 GFLOPS)
+          (q_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.42 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (k_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 312.13 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (v_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 312 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (o_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.61 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (rotary_emb): LlamaRotaryEmbedding(0 = 0% Params, 0 MACs = 0% MACs, 112.3 us = 0% latency, 0 FLOPS)
+        )
+        (mlp): LlamaMLP(
+          0 = 0% Params, 2.88 TMACs = 1.84% MACs, 19.53 ms = 0.83% latency, 294.85 TFLOPS
+          (gate_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 5.93 ms = 0.25% latency, 323.53 TFLOPS, in_features=4096, out_features=11008, bias=False)
+          (up_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 5.92 ms = 0.25% latency, 324 TFLOPS, in_features=4096, out_features=11008, bias=False)
+          (down_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 6 ms = 0.25% latency, 319.88 TFLOPS, in_features=11008, out_features=4096, bias=False)
+          (act_fn): SiLU(0 = 0% Params, 0 MACs = 0% MACs, 482.32 us = 0.02% latency, 242.84 GFLOPS)
+        )
+        (input_layernorm): LlamaRMSNorm(4.1 K = 0% Params, 0 MACs = 0% MACs, 1.69 ms = 0.07% latency, 0 FLOPS)
+        (post_attention_layernorm): LlamaRMSNorm(4.1 K = 0% Params, 0 MACs = 0% MACs, 1.69 ms = 0.07% latency, 0 FLOPS)
+      )
+      (30): LlamaDecoderLayer(
+        10.03 K = 0.01% Params, 4.31 TMACs = 2.76% MACs, 61.78 ms = 2.62% latency, 139.45 TFLOPS
+        (self_attn): LlamaFlashAttention2(
+          1.84 K = 0% Params, 1.43 TMACs = 0.91% MACs, 38.04 ms = 1.61% latency, 75.15 TFLOPS
+          (gate_1): Linear(896 = 0% Params, 610.14 MMACs = 0% MACs, 195.74 us = 0.01% latency, 6.23 TFLOPS, in_features=128, out_features=7, bias=False)
+          (gate_2): Linear(49 = 0% Params, 33.37 MMACs = 0% MACs, 132.8 us = 0.01% latency, 502.52 GFLOPS, in_features=7, out_features=7, bias=False)
+          (gate_3): Linear(896 = 0% Params, 610.14 MMACs = 0% MACs, 155.21 us = 0.01% latency, 7.86 TFLOPS, in_features=128, out_features=7, bias=False)
+          (act_fn): SiLU(0 = 0% Params, 0 MACs = 0% MACs, 95.13 us = 0% latency, 25.05 GFLOPS)
+          (q_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.51 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (k_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.84 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (v_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.94 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (o_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.3 ms = 0.1% latency, 311.13 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (rotary_emb): LlamaRotaryEmbedding(0 = 0% Params, 0 MACs = 0% MACs, 113.49 us = 0% latency, 0 FLOPS)
+        )
+        (mlp): LlamaMLP(
+          0 = 0% Params, 2.88 TMACs = 1.84% MACs, 19.52 ms = 0.83% latency, 294.94 TFLOPS
+          (gate_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 5.93 ms = 0.25% latency, 323.84 TFLOPS, in_features=4096, out_features=11008, bias=False)
+          (up_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 5.92 ms = 0.25% latency, 324.01 TFLOPS, in_features=4096, out_features=11008, bias=False)
+          (down_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 6 ms = 0.25% latency, 320.02 TFLOPS, in_features=11008, out_features=4096, bias=False)
+          (act_fn): SiLU(0 = 0% Params, 0 MACs = 0% MACs, 482.32 us = 0.02% latency, 242.84 GFLOPS)
+        )
+        (input_layernorm): LlamaRMSNorm(4.1 K = 0% Params, 0 MACs = 0% MACs, 1.69 ms = 0.07% latency, 0 FLOPS)
+        (post_attention_layernorm): LlamaRMSNorm(4.1 K = 0% Params, 0 MACs = 0% MACs, 1.69 ms = 0.07% latency, 0 FLOPS)
+      )
+      (31): LlamaDecoderLayer(
+        10.03 K = 0.01% Params, 4.31 TMACs = 2.76% MACs, 61.82 ms = 2.62% latency, 139.36 TFLOPS
+        (self_attn): LlamaFlashAttention2(
+          1.84 K = 0% Params, 1.43 TMACs = 0.91% MACs, 38.07 ms = 1.61% latency, 75.08 TFLOPS
+          (gate_1): Linear(896 = 0% Params, 610.14 MMACs = 0% MACs, 201.23 us = 0.01% latency, 6.06 TFLOPS, in_features=128, out_features=7, bias=False)
+          (gate_2): Linear(49 = 0% Params, 33.37 MMACs = 0% MACs, 132.56 us = 0.01% latency, 503.42 GFLOPS, in_features=7, out_features=7, bias=False)
+          (gate_3): Linear(896 = 0% Params, 610.14 MMACs = 0% MACs, 156.88 us = 0.01% latency, 7.78 TFLOPS, in_features=128, out_features=7, bias=False)
+          (act_fn): SiLU(0 = 0% Params, 0 MACs = 0% MACs, 94.89 us = 0% latency, 25.12 GFLOPS)
+          (q_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.45 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (k_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 312.16 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (v_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 312.23 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (o_proj): Linear(0 = 0% Params, 357.02 GMACs = 0.23% MACs, 2.29 ms = 0.1% latency, 311.35 TFLOPS, in_features=4096, out_features=4096, bias=False)
+          (rotary_emb): LlamaRotaryEmbedding(0 = 0% Params, 0 MACs = 0% MACs, 113.73 us = 0% latency, 0 FLOPS)
+        )
+        (mlp): LlamaMLP(
+          0 = 0% Params, 2.88 TMACs = 1.84% MACs, 19.53 ms = 0.83% latency, 294.83 TFLOPS
+          (gate_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 5.93 ms = 0.25% latency, 323.75 TFLOPS, in_features=4096, out_features=11008, bias=False)
+          (up_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 5.92 ms = 0.25% latency, 323.88 TFLOPS, in_features=4096, out_features=11008, bias=False)
+          (down_proj): Linear(0 = 0% Params, 959.49 GMACs = 0.61% MACs, 6 ms = 0.25% latency, 320.04 TFLOPS, in_features=11008, out_features=4096, bias=False)
+          (act_fn): SiLU(0 = 0% Params, 0 MACs = 0% MACs, 482.56 us = 0.02% latency, 242.72 GFLOPS)
+        )
+        (input_layernorm): LlamaRMSNorm(4.1 K = 0% Params, 0 MACs = 0% MACs, 1.69 ms = 0.07% latency, 0 FLOPS)
+        (post_attention_layernorm): LlamaRMSNorm(4.1 K = 0% Params, 0 MACs = 0% MACs, 1.69 ms = 0.07% latency, 0 FLOPS)
+      )
+    )
+    (norm): LlamaRMSNorm(4.1 K = 0% Params, 0 MACs = 0% MACs, 1.69 ms = 0.07% latency, 0 FLOPS)
+    (vision_tower): CLIPVisionTower(
+      324.61 K = 0.24% Params, 15.34 TMACs = 9.82% MACs, 276.98 ms = 11.74% latency, 110.8 TFLOPS
+      (vision_tower): CLIPVisionModel(
+        324.61 K = 0.24% Params, 15.34 TMACs = 9.82% MACs, 276.56 ms = 11.73% latency, 110.97 TFLOPS
+        (vision_model): CLIPVisionTransformer(
+          324.61 K = 0.24% Params, 15.34 TMACs = 9.82% MACs, 275.98 ms = 11.7% latency, 111.2 TFLOPS
+          (embeddings): CLIPVisionEmbeddings(
+            1.02 K = 0% Params, 14.57 GMACs = 0.01% MACs, 2.35 ms = 0.1% latency, 12.38 TFLOPS
+            (patch_embedding): Conv2d(0 = 0% Params, 14.57 GMACs = 0.01% MACs, 1.21 ms = 0.05% latency, 24.01 TFLOPS, 3, 1024, kernel_size=(14, 14), stride=(14, 14), bias=False)
+            (position_embedding): Embedding(0 = 0% Params, 0 MACs = 0% MACs, 263.69 us = 0.01% latency, 0 FLOPS, 577, 1024)
+          )
+          (pre_layrnorm): LayerNorm(2.05 K = 0% Params, 0 MACs = 0% MACs, 158.31 us = 0.01% latency, 783.77 GFLOPS, (1024,), eps=1e-05, elementwise_affine=True)
+          (encoder): CLIPEncoder(
+            319.49 K = 0.24% Params, 15.32 TMACs = 9.81% MACs, 272.03 ms = 11.53% latency, 112.71 TFLOPS
+            (layers): ModuleList(
+              (0): CLIPEncoderLayer(
+                13.31 K = 0.01% Params, 638.51 GMACs = 0.41% MACs, 12.23 ms = 0.52% latency, 104.46 TFLOPS
+                (self_attn): CLIPAttention(
+                  4.1 K = 0% Params, 231.93 GMACs = 0.15% MACs, 5.55 ms = 0.24% latency, 83.68 TFLOPS
+                  (k_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 458.24 us = 0.02% latency, 221.82 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                  (v_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 456.81 us = 0.02% latency, 222.51 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                  (q_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 528.34 us = 0.02% latency, 192.39 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                  (out_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 456.81 us = 0.02% latency, 222.51 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                )
+                (layer_norm1): LayerNorm(2.05 K = 0% Params, 0 MACs = 0% MACs, 120.4 us = 0.01% latency, 1.03 TFLOPS, (1024,), eps=1e-05, elementwise_affine=True)
+                (mlp): CLIPMLP(
+                  5.12 K = 0% Params, 406.58 GMACs = 0.26% MACs, 5.29 ms = 0.22% latency, 153.71 TFLOPS
+                  (activation_fn): QuickGELUActivation(0 = 0% Params, 0 MACs = 0% MACs, 1.49 ms = 0.06% latency, 0 FLOPS)
+                  (fc1): Linear(4.1 K = 0% Params, 203.29 GMACs = 0.13% MACs, 1.76 ms = 0.07% latency, 231.23 TFLOPS, in_features=1024, out_features=4096, bias=True)
+                  (fc2): Linear(1.02 K = 0% Params, 203.29 GMACs = 0.13% MACs, 1.36 ms = 0.06% latency, 298.71 TFLOPS, in_features=4096, out_features=1024, bias=True)
+                )
+                (layer_norm2): LayerNorm(2.05 K = 0% Params, 0 MACs = 0% MACs, 115.87 us = 0% latency, 1.07 TFLOPS, (1024,), eps=1e-05, elementwise_affine=True)
+              )
+              (1): CLIPEncoderLayer(
+                13.31 K = 0.01% Params, 638.51 GMACs = 0.41% MACs, 11.59 ms = 0.49% latency, 110.25 TFLOPS
+                (self_attn): CLIPAttention(
+                  4.1 K = 0% Params, 231.93 GMACs = 0.15% MACs, 5.23 ms = 0.22% latency, 88.77 TFLOPS
+                  (k_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 466.11 us = 0.02% latency, 218.07 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                  (v_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 458 us = 0.02% latency, 221.93 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                  (q_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 460.39 us = 0.02% latency, 220.78 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                  (out_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 464.44 us = 0.02% latency, 218.85 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                )
+                (layer_norm1): LayerNorm(2.05 K = 0% Params, 0 MACs = 0% MACs, 142.1 us = 0.01% latency, 873.19 GFLOPS, (1024,), eps=1e-05, elementwise_affine=True)
+                (mlp): CLIPMLP(
+                  5.12 K = 0% Params, 406.58 GMACs = 0.26% MACs, 5.31 ms = 0.23% latency, 153.02 TFLOPS
+                  (activation_fn): QuickGELUActivation(0 = 0% Params, 0 MACs = 0% MACs, 1.49 ms = 0.06% latency, 0 FLOPS)
+                  (fc1): Linear(4.1 K = 0% Params, 203.29 GMACs = 0.13% MACs, 1.77 ms = 0.08% latency, 229.73 TFLOPS, in_features=1024, out_features=4096, bias=True)
+                  (fc2): Linear(1.02 K = 0% Params, 203.29 GMACs = 0.13% MACs, 1.37 ms = 0.06% latency, 297.77 TFLOPS, in_features=4096, out_features=1024, bias=True)
+                )
+                (layer_norm2): LayerNorm(2.05 K = 0% Params, 0 MACs = 0% MACs, 112.53 us = 0% latency, 1.1 TFLOPS, (1024,), eps=1e-05, elementwise_affine=True)
+              )
+              (2): CLIPEncoderLayer(
+                13.31 K = 0.01% Params, 638.51 GMACs = 0.41% MACs, 11.55 ms = 0.49% latency, 110.63 TFLOPS
+                (self_attn): CLIPAttention(
+                  4.1 K = 0% Params, 231.93 GMACs = 0.15% MACs, 5.23 ms = 0.22% latency, 88.77 TFLOPS
+                  (k_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 459.67 us = 0.02% latency, 221.13 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                  (v_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 458 us = 0.02% latency, 221.93 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                  (q_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 470.4 us = 0.02% latency, 216.08 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                  (out_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 458.96 us = 0.02% latency, 221.47 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                )
+                (layer_norm1): LayerNorm(2.05 K = 0% Params, 0 MACs = 0% MACs, 126.6 us = 0.01% latency, 980.08 GFLOPS, (1024,), eps=1e-05, elementwise_affine=True)
+                (mlp): CLIPMLP(
+                  5.12 K = 0% Params, 406.58 GMACs = 0.26% MACs, 5.28 ms = 0.22% latency, 153.89 TFLOPS
+                  (activation_fn): QuickGELUActivation(0 = 0% Params, 0 MACs = 0% MACs, 1.49 ms = 0.06% latency, 0 FLOPS)
+                  (fc1): Linear(4.1 K = 0% Params, 203.29 GMACs = 0.13% MACs, 1.76 ms = 0.07% latency, 231.48 TFLOPS, in_features=1024, out_features=4096, bias=True)
+                  (fc2): Linear(1.02 K = 0% Params, 203.29 GMACs = 0.13% MACs, 1.36 ms = 0.06% latency, 298.08 TFLOPS, in_features=4096, out_features=1024, bias=True)
+                )
+                (layer_norm2): LayerNorm(2.05 K = 0% Params, 0 MACs = 0% MACs, 115.87 us = 0% latency, 1.07 TFLOPS, (1024,), eps=1e-05, elementwise_affine=True)
+              )
+              (3): CLIPEncoderLayer(
+                13.31 K = 0.01% Params, 638.51 GMACs = 0.41% MACs, 10.95 ms = 0.46% latency, 116.69 TFLOPS
+                (self_attn): CLIPAttention(
+                  4.1 K = 0% Params, 231.93 GMACs = 0.15% MACs, 5.07 ms = 0.21% latency, 91.6 TFLOPS
+                  (k_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 458.48 us = 0.02% latency, 221.7 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                  (v_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 457.76 us = 0.02% latency, 222.05 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                  (q_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 468.73 us = 0.02% latency, 216.85 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                  (out_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 458.72 us = 0.02% latency, 221.58 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                )
+                (layer_norm1): LayerNorm(2.05 K = 0% Params, 0 MACs = 0% MACs, 122.79 us = 0.01% latency, 1.01 TFLOPS, (1024,), eps=1e-05, elementwise_affine=True)
+                (mlp): CLIPMLP(
+                  5.12 K = 0% Params, 406.58 GMACs = 0.26% MACs, 5.06 ms = 0.21% latency, 160.79 TFLOPS
+                  (activation_fn): QuickGELUActivation(0 = 0% Params, 0 MACs = 0% MACs, 1.49 ms = 0.06% latency, 0 FLOPS)
+                  (fc1): Linear(4.1 K = 0% Params, 203.29 GMACs = 0.13% MACs, 1.75 ms = 0.07% latency, 232.43 TFLOPS, in_features=1024, out_features=4096, bias=True)
+                  (fc2): Linear(1.02 K = 0% Params, 203.29 GMACs = 0.13% MACs, 1.36 ms = 0.06% latency, 298.45 TFLOPS, in_features=4096, out_features=1024, bias=True)
+                )
+                (layer_norm2): LayerNorm(2.05 K = 0% Params, 0 MACs = 0% MACs, 113.96 us = 0% latency, 1.09 TFLOPS, (1024,), eps=1e-05, elementwise_affine=True)
+              )
+              (4): CLIPEncoderLayer(
+                13.31 K = 0.01% Params, 638.51 GMACs = 0.41% MACs, 11.06 ms = 0.47% latency, 115.5 TFLOPS
+                (self_attn): CLIPAttention(
+                  4.1 K = 0% Params, 231.93 GMACs = 0.15% MACs, 5.15 ms = 0.22% latency, 90.03 TFLOPS
+                  (k_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 456.81 us = 0.02% latency, 222.51 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                  (v_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 599.38 us = 0.03% latency, 169.58 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                  (q_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 457.53 us = 0.02% latency, 222.16 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                  (out_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 455.38 us = 0.02% latency, 223.21 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                )
+                (layer_norm1): LayerNorm(2.05 K = 0% Params, 0 MACs = 0% MACs, 123.98 us = 0.01% latency, 1 TFLOPS, (1024,), eps=1e-05, elementwise_affine=True)
+                (mlp): CLIPMLP(
+                  5.12 K = 0% Params, 406.58 GMACs = 0.26% MACs, 5.09 ms = 0.22% latency, 159.7 TFLOPS
+                  (activation_fn): QuickGELUActivation(0 = 0% Params, 0 MACs = 0% MACs, 1.49 ms = 0.06% latency, 0 FLOPS)
+                  (fc1): Linear(4.1 K = 0% Params, 203.29 GMACs = 0.13% MACs, 1.75 ms = 0.07% latency, 232.17 TFLOPS, in_features=1024, out_features=4096, bias=True)
+                  (fc2): Linear(1.02 K = 0% Params, 203.29 GMACs = 0.13% MACs, 1.37 ms = 0.06% latency, 297.25 TFLOPS, in_features=4096, out_features=1024, bias=True)
+                )
+                (layer_norm2): LayerNorm(2.05 K = 0% Params, 0 MACs = 0% MACs, 113.96 us = 0% latency, 1.09 TFLOPS, (1024,), eps=1e-05, elementwise_affine=True)
+              )
+              (5): CLIPEncoderLayer(
+                13.31 K = 0.01% Params, 638.51 GMACs = 0.41% MACs, 11.08 ms = 0.47% latency, 115.35 TFLOPS
+                (self_attn): CLIPAttention(
+                  4.1 K = 0% Params, 231.93 GMACs = 0.15% MACs, 5.1 ms = 0.22% latency, 90.99 TFLOPS
+                  (k_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 464.44 us = 0.02% latency, 218.85 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                  (v_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 461.82 us = 0.02% latency, 220.1 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                  (q_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 464.44 us = 0.02% latency, 218.85 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                  (out_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 463.01 us = 0.02% latency, 219.53 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                )
+                (layer_norm1): LayerNorm(2.05 K = 0% Params, 0 MACs = 0% MACs, 151.87 us = 0.01% latency, 816.99 GFLOPS, (1024,), eps=1e-05, elementwise_affine=True)
+                (mlp): CLIPMLP(
+                  5.12 K = 0% Params, 406.58 GMACs = 0.26% MACs, 5.07 ms = 0.22% latency, 160.31 TFLOPS
+                  (activation_fn): QuickGELUActivation(0 = 0% Params, 0 MACs = 0% MACs, 1.49 ms = 0.06% latency, 0 FLOPS)
+                  (fc1): Linear(4.1 K = 0% Params, 203.29 GMACs = 0.13% MACs, 1.76 ms = 0.07% latency, 230.48 TFLOPS, in_features=1024, out_features=4096, bias=True)
+                  (fc2): Linear(1.02 K = 0% Params, 203.29 GMACs = 0.13% MACs, 1.36 ms = 0.06% latency, 298.24 TFLOPS, in_features=4096, out_features=1024, bias=True)
+                )
+                (layer_norm2): LayerNorm(2.05 K = 0% Params, 0 MACs = 0% MACs, 113.49 us = 0% latency, 1.09 TFLOPS, (1024,), eps=1e-05, elementwise_affine=True)
+              )
+              (6): CLIPEncoderLayer(
+                13.31 K = 0.01% Params, 638.51 GMACs = 0.41% MACs, 10.97 ms = 0.47% latency, 116.45 TFLOPS
+                (self_attn): CLIPAttention(
+                  4.1 K = 0% Params, 231.93 GMACs = 0.15% MACs, 5.03 ms = 0.21% latency, 92.32 TFLOPS
+                  (k_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 464.68 us = 0.02% latency, 218.74 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                  (v_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 457.05 us = 0.02% latency, 222.39 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                  (q_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 461.58 us = 0.02% latency, 220.21 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                  (out_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 457.05 us = 0.02% latency, 222.39 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                )
+                (layer_norm1): LayerNorm(2.05 K = 0% Params, 0 MACs = 0% MACs, 118.02 us = 0.01% latency, 1.05 TFLOPS, (1024,), eps=1e-05, elementwise_affine=True)
+                (mlp): CLIPMLP(
+                  5.12 K = 0% Params, 406.58 GMACs = 0.26% MACs, 5.14 ms = 0.22% latency, 158.27 TFLOPS
+                  (activation_fn): QuickGELUActivation(0 = 0% Params, 0 MACs = 0% MACs, 1.49 ms = 0.06% latency, 0 FLOPS)
+                  (fc1): Linear(4.1 K = 0% Params, 203.29 GMACs = 0.13% MACs, 1.75 ms = 0.07% latency, 232.68 TFLOPS, in_features=1024, out_features=4096, bias=True)
+                  (fc2): Linear(1.02 K = 0% Params, 203.29 GMACs = 0.13% MACs, 1.36 ms = 0.06% latency, 298.29 TFLOPS, in_features=4096, out_features=1024, bias=True)
+                )
+                (layer_norm2): LayerNorm(2.05 K = 0% Params, 0 MACs = 0% MACs, 114.2 us = 0% latency, 1.09 TFLOPS, (1024,), eps=1e-05, elementwise_affine=True)
+              )
+              (7): CLIPEncoderLayer(
+                13.31 K = 0.01% Params, 638.51 GMACs = 0.41% MACs, 10.9 ms = 0.46% latency, 117.18 TFLOPS
+                (self_attn): CLIPAttention(
+                  4.1 K = 0% Params, 231.93 GMACs = 0.15% MACs, 5.01 ms = 0.21% latency, 92.64 TFLOPS
+                  (k_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 458.48 us = 0.02% latency, 221.7 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                  (v_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 456.57 us = 0.02% latency, 222.63 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                  (q_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 458.96 us = 0.02% latency, 221.47 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                  (out_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 454.43 us = 0.02% latency, 223.68 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                )
+                (layer_norm1): LayerNorm(2.05 K = 0% Params, 0 MACs = 0% MACs, 118.02 us = 0.01% latency, 1.05 TFLOPS, (1024,), eps=1e-05, elementwise_affine=True)
+                (mlp): CLIPMLP(
+                  5.12 K = 0% Params, 406.58 GMACs = 0.26% MACs, 5.1 ms = 0.22% latency, 159.41 TFLOPS
+                  (activation_fn): QuickGELUActivation(0 = 0% Params, 0 MACs = 0% MACs, 1.49 ms = 0.06% latency, 0 FLOPS)
+                  (fc1): Linear(4.1 K = 0% Params, 203.29 GMACs = 0.13% MACs, 1.76 ms = 0.07% latency, 230.48 TFLOPS, in_features=1024, out_features=4096, bias=True)
+                  (fc2): Linear(1.02 K = 0% Params, 203.29 GMACs = 0.13% MACs, 1.36 ms = 0.06% latency, 298.39 TFLOPS, in_features=4096, out_features=1024, bias=True)
+                )
+                (layer_norm2): LayerNorm(2.05 K = 0% Params, 0 MACs = 0% MACs, 111.58 us = 0% latency, 1.11 TFLOPS, (1024,), eps=1e-05, elementwise_affine=True)
+              )
+              (8): CLIPEncoderLayer(
+                13.31 K = 0.01% Params, 638.51 GMACs = 0.41% MACs, 10.9 ms = 0.46% latency, 117.19 TFLOPS
+                (self_attn): CLIPAttention(
+                  4.1 K = 0% Params, 231.93 GMACs = 0.15% MACs, 5.03 ms = 0.21% latency, 92.24 TFLOPS
+                  (k_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 456.81 us = 0.02% latency, 222.51 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                  (v_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 458 us = 0.02% latency, 221.93 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                  (q_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 468.49 us = 0.02% latency, 216.96 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                  (out_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 459.19 us = 0.02% latency, 221.35 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                )
+                (layer_norm1): LayerNorm(2.05 K = 0% Params, 0 MACs = 0% MACs, 116.59 us = 0% latency, 1.06 TFLOPS, (1024,), eps=1e-05, elementwise_affine=True)
+                (mlp): CLIPMLP(
+                  5.12 K = 0% Params, 406.58 GMACs = 0.26% MACs, 5.07 ms = 0.21% latency, 160.5 TFLOPS
+                  (activation_fn): QuickGELUActivation(0 = 0% Params, 0 MACs = 0% MACs, 1.49 ms = 0.06% latency, 0 FLOPS)
+                  (fc1): Linear(4.1 K = 0% Params, 203.29 GMACs = 0.13% MACs, 1.75 ms = 0.07% latency, 232.11 TFLOPS, in_features=1024, out_features=4096, bias=True)
+                  (fc2): Linear(1.02 K = 0% Params, 203.29 GMACs = 0.13% MACs, 1.36 ms = 0.06% latency, 298.45 TFLOPS, in_features=4096, out_features=1024, bias=True)
+                )
+                (layer_norm2): LayerNorm(2.05 K = 0% Params, 0 MACs = 0% MACs, 114.92 us = 0% latency, 1.08 TFLOPS, (1024,), eps=1e-05, elementwise_affine=True)
+              )
+              (9): CLIPEncoderLayer(
+                13.31 K = 0.01% Params, 638.51 GMACs = 0.41% MACs, 10.94 ms = 0.46% latency, 116.77 TFLOPS
+                (self_attn): CLIPAttention(
+                  4.1 K = 0% Params, 231.93 GMACs = 0.15% MACs, 5.01 ms = 0.21% latency, 92.59 TFLOPS
+                  (k_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 455.14 us = 0.02% latency, 223.33 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                  (v_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 456.81 us = 0.02% latency, 222.51 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                  (q_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 459.19 us = 0.02% latency, 221.35 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                  (out_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 458.96 us = 0.02% latency, 221.47 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                )
+                (layer_norm1): LayerNorm(2.05 K = 0% Params, 0 MACs = 0% MACs, 120.88 us = 0.01% latency, 1.03 TFLOPS, (1024,), eps=1e-05, elementwise_affine=True)
+                (mlp): CLIPMLP(
+                  5.12 K = 0% Params, 406.58 GMACs = 0.26% MACs, 5.1 ms = 0.22% latency, 159.38 TFLOPS
+                  (activation_fn): QuickGELUActivation(0 = 0% Params, 0 MACs = 0% MACs, 1.49 ms = 0.06% latency, 0 FLOPS)
+                  (fc1): Linear(4.1 K = 0% Params, 203.29 GMACs = 0.13% MACs, 1.75 ms = 0.07% latency, 231.98 TFLOPS, in_features=1024, out_features=4096, bias=True)
+                  (fc2): Linear(1.02 K = 0% Params, 203.29 GMACs = 0.13% MACs, 1.38 ms = 0.06% latency, 295.55 TFLOPS, in_features=4096, out_features=1024, bias=True)
+                )
+                (layer_norm2): LayerNorm(2.05 K = 0% Params, 0 MACs = 0% MACs, 131.85 us = 0.01% latency, 941.09 GFLOPS, (1024,), eps=1e-05, elementwise_affine=True)
+              )
+              (10): CLIPEncoderLayer(
+                13.31 K = 0.01% Params, 638.51 GMACs = 0.41% MACs, 10.98 ms = 0.47% latency, 116.38 TFLOPS
+                (self_attn): CLIPAttention(
+                  4.1 K = 0% Params, 231.93 GMACs = 0.15% MACs, 5.06 ms = 0.21% latency, 91.8 TFLOPS
+                  (k_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 461.1 us = 0.02% latency, 220.44 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                  (v_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 458.48 us = 0.02% latency, 221.7 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                  (q_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 463.01 us = 0.02% latency, 219.53 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                  (out_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 461.34 us = 0.02% latency, 220.33 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                )
+                (layer_norm1): LayerNorm(2.05 K = 0% Params, 0 MACs = 0% MACs, 121.83 us = 0.01% latency, 1.02 TFLOPS, (1024,), eps=1e-05, elementwise_affine=True)
+                (mlp): CLIPMLP(
+                  5.12 K = 0% Params, 406.58 GMACs = 0.26% MACs, 5.1 ms = 0.22% latency, 159.58 TFLOPS
+                  (activation_fn): QuickGELUActivation(0 = 0% Params, 0 MACs = 0% MACs, 1.49 ms = 0.06% latency, 0 FLOPS)
+                  (fc1): Linear(4.1 K = 0% Params, 203.29 GMACs = 0.13% MACs, 1.76 ms = 0.07% latency, 230.64 TFLOPS, in_features=1024, out_features=4096, bias=True)
+                  (fc2): Linear(1.02 K = 0% Params, 203.29 GMACs = 0.13% MACs, 1.37 ms = 0.06% latency, 297.77 TFLOPS, in_features=4096, out_features=1024, bias=True)
+                )
+                (layer_norm2): LayerNorm(2.05 K = 0% Params, 0 MACs = 0% MACs, 117.06 us = 0% latency, 1.06 TFLOPS, (1024,), eps=1e-05, elementwise_affine=True)
+              )
+              (11): CLIPEncoderLayer(
+                13.31 K = 0.01% Params, 638.51 GMACs = 0.41% MACs, 11.03 ms = 0.47% latency, 115.79 TFLOPS
+                (self_attn): CLIPAttention(
+                  4.1 K = 0% Params, 231.93 GMACs = 0.15% MACs, 5.04 ms = 0.21% latency, 92.05 TFLOPS
+                  (k_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 460.39 us = 0.02% latency, 220.78 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                  (v_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 459.43 us = 0.02% latency, 221.24 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                  (q_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 461.58 us = 0.02% latency, 220.21 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                  (out_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 457.29 us = 0.02% latency, 222.28 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                )
+                (layer_norm1): LayerNorm(2.05 K = 0% Params, 0 MACs = 0% MACs, 123.26 us = 0.01% latency, 1.01 TFLOPS, (1024,), eps=1e-05, elementwise_affine=True)
+                (mlp): CLIPMLP(
+                  5.12 K = 0% Params, 406.58 GMACs = 0.26% MACs, 5.16 ms = 0.22% latency, 157.51 TFLOPS
+                  (activation_fn): QuickGELUActivation(0 = 0% Params, 0 MACs = 0% MACs, 1.49 ms = 0.06% latency, 0 FLOPS)
+                  (fc1): Linear(4.1 K = 0% Params, 203.29 GMACs = 0.13% MACs, 1.76 ms = 0.07% latency, 231.35 TFLOPS, in_features=1024, out_features=4096, bias=True)
+                  (fc2): Linear(1.02 K = 0% Params, 203.29 GMACs = 0.13% MACs, 1.37 ms = 0.06% latency, 296.53 TFLOPS, in_features=4096, out_features=1024, bias=True)
+                )
+                (layer_norm2): LayerNorm(2.05 K = 0% Params, 0 MACs = 0% MACs, 118.26 us = 0.01% latency, 1.05 TFLOPS, (1024,), eps=1e-05, elementwise_affine=True)
+              )
+              (12): CLIPEncoderLayer(
+                13.31 K = 0.01% Params, 638.51 GMACs = 0.41% MACs, 10.97 ms = 0.46% latency, 116.5 TFLOPS
+                (self_attn): CLIPAttention(
+                  4.1 K = 0% Params, 231.93 GMACs = 0.15% MACs, 5.05 ms = 0.21% latency, 91.9 TFLOPS
+                  (k_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 463.25 us = 0.02% latency, 219.42 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                  (v_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 459.91 us = 0.02% latency, 221.01 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                  (q_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 462.53 us = 0.02% latency, 219.76 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                  (out_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 459.67 us = 0.02% latency, 221.13 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                )
+                (layer_norm1): LayerNorm(2.05 K = 0% Params, 0 MACs = 0% MACs, 121.36 us = 0.01% latency, 1.02 TFLOPS, (1024,), eps=1e-05, elementwise_affine=True)
+                (mlp): CLIPMLP(
+                  5.12 K = 0% Params, 406.58 GMACs = 0.26% MACs, 5.09 ms = 0.22% latency, 159.64 TFLOPS
+                  (activation_fn): QuickGELUActivation(0 = 0% Params, 0 MACs = 0% MACs, 1.49 ms = 0.06% latency, 0 FLOPS)
+                  (fc1): Linear(4.1 K = 0% Params, 203.29 GMACs = 0.13% MACs, 1.76 ms = 0.07% latency, 231.32 TFLOPS, in_features=1024, out_features=4096, bias=True)
+                  (fc2): Linear(1.02 K = 0% Params, 203.29 GMACs = 0.13% MACs, 1.37 ms = 0.06% latency, 297.35 TFLOPS, in_features=4096, out_features=1024, bias=True)
+                )
+                (layer_norm2): LayerNorm(2.05 K = 0% Params, 0 MACs = 0% MACs, 113.96 us = 0% latency, 1.09 TFLOPS, (1024,), eps=1e-05, elementwise_affine=True)
+              )
+              (13): CLIPEncoderLayer(
+                13.31 K = 0.01% Params, 638.51 GMACs = 0.41% MACs, 11.15 ms = 0.47% latency, 114.57 TFLOPS
+                (self_attn): CLIPAttention(
+                  4.1 K = 0% Params, 231.93 GMACs = 0.15% MACs, 5.24 ms = 0.22% latency, 88.5 TFLOPS
+                  (k_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 458.96 us = 0.02% latency, 221.47 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                  (v_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 460.15 us = 0.02% latency, 220.9 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                  (q_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 472.78 us = 0.02% latency, 214.99 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                  (out_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 461.82 us = 0.02% latency, 220.1 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                )
+                (layer_norm1): LayerNorm(2.05 K = 0% Params, 0 MACs = 0% MACs, 120.88 us = 0.01% latency, 1.03 TFLOPS, (1024,), eps=1e-05, elementwise_affine=True)
+                (mlp): CLIPMLP(
+                  5.12 K = 0% Params, 406.58 GMACs = 0.26% MACs, 5.08 ms = 0.22% latency, 160.06 TFLOPS
+                  (activation_fn): QuickGELUActivation(0 = 0% Params, 0 MACs = 0% MACs, 1.49 ms = 0.06% latency, 0 FLOPS)
+                  (fc1): Linear(4.1 K = 0% Params, 203.29 GMACs = 0.13% MACs, 1.76 ms = 0.07% latency, 230.92 TFLOPS, in_features=1024, out_features=4096, bias=True)
+                  (fc2): Linear(1.02 K = 0% Params, 203.29 GMACs = 0.13% MACs, 1.36 ms = 0.06% latency, 298.29 TFLOPS, in_features=4096, out_features=1024, bias=True)
+                )
+                (layer_norm2): LayerNorm(2.05 K = 0% Params, 0 MACs = 0% MACs, 117.54 us = 0% latency, 1.06 TFLOPS, (1024,), eps=1e-05, elementwise_affine=True)
+              )
+              (14): CLIPEncoderLayer(
+                13.31 K = 0.01% Params, 638.51 GMACs = 0.41% MACs, 10.93 ms = 0.46% latency, 116.84 TFLOPS
+                (self_attn): CLIPAttention(
+                  4.1 K = 0% Params, 231.93 GMACs = 0.15% MACs, 5.04 ms = 0.21% latency, 92.1 TFLOPS
+                  (k_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 472.31 us = 0.02% latency, 215.21 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                  (v_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 456.33 us = 0.02% latency, 222.74 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                  (q_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 464.2 us = 0.02% latency, 218.97 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                  (out_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 461.1 us = 0.02% latency, 220.44 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                )
+                (layer_norm1): LayerNorm(2.05 K = 0% Params, 0 MACs = 0% MACs, 123.26 us = 0.01% latency, 1.01 TFLOPS, (1024,), eps=1e-05, elementwise_affine=True)
+                (mlp): CLIPMLP(
+                  5.12 K = 0% Params, 406.58 GMACs = 0.26% MACs, 5.08 ms = 0.22% latency, 160.17 TFLOPS
+                  (activation_fn): QuickGELUActivation(0 = 0% Params, 0 MACs = 0% MACs, 1.49 ms = 0.06% latency, 0 FLOPS)
+                  (fc1): Linear(4.1 K = 0% Params, 203.29 GMACs = 0.13% MACs, 1.76 ms = 0.07% latency, 230.6 TFLOPS, in_features=1024, out_features=4096, bias=True)
+                  (fc2): Linear(1.02 K = 0% Params, 203.29 GMACs = 0.13% MACs, 1.36 ms = 0.06% latency, 298.08 TFLOPS, in_features=4096, out_features=1024, bias=True)
+                )
+                (layer_norm2): LayerNorm(2.05 K = 0% Params, 0 MACs = 0% MACs, 116.35 us = 0% latency, 1.07 TFLOPS, (1024,), eps=1e-05, elementwise_affine=True)
+              )
+              (15): CLIPEncoderLayer(
+                13.31 K = 0.01% Params, 638.51 GMACs = 0.41% MACs, 10.94 ms = 0.46% latency, 116.77 TFLOPS
+                (self_attn): CLIPAttention(
+                  4.1 K = 0% Params, 231.93 GMACs = 0.15% MACs, 5 ms = 0.21% latency, 92.79 TFLOPS
+                  (k_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 454.9 us = 0.02% latency, 223.44 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                  (v_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 454.66 us = 0.02% latency, 223.56 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                  (q_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 461.82 us = 0.02% latency, 220.1 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                  (out_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 458.96 us = 0.02% latency, 221.47 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                )
+                (layer_norm1): LayerNorm(2.05 K = 0% Params, 0 MACs = 0% MACs, 127.08 us = 0.01% latency, 976.4 GFLOPS, (1024,), eps=1e-05, elementwise_affine=True)
+                (mlp): CLIPMLP(
+                  5.12 K = 0% Params, 406.58 GMACs = 0.26% MACs, 5.12 ms = 0.22% latency, 158.73 TFLOPS
+                  (activation_fn): QuickGELUActivation(0 = 0% Params, 0 MACs = 0% MACs, 1.49 ms = 0.06% latency, 0 FLOPS)
+                  (fc1): Linear(4.1 K = 0% Params, 203.29 GMACs = 0.13% MACs, 1.76 ms = 0.07% latency, 230.48 TFLOPS, in_features=1024, out_features=4096, bias=True)
+                  (fc2): Linear(1.02 K = 0% Params, 203.29 GMACs = 0.13% MACs, 1.36 ms = 0.06% latency, 298.18 TFLOPS, in_features=4096, out_features=1024, bias=True)
+                )
+                (layer_norm2): LayerNorm(2.05 K = 0% Params, 0 MACs = 0% MACs, 116.11 us = 0% latency, 1.07 TFLOPS, (1024,), eps=1e-05, elementwise_affine=True)
+              )
+              (16): CLIPEncoderLayer(
+                13.31 K = 0.01% Params, 638.51 GMACs = 0.41% MACs, 10.89 ms = 0.46% latency, 117.27 TFLOPS
+                (self_attn): CLIPAttention(
+                  4.1 K = 0% Params, 231.93 GMACs = 0.15% MACs, 5.03 ms = 0.21% latency, 92.28 TFLOPS
+                  (k_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 460.15 us = 0.02% latency, 220.9 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                  (v_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 455.86 us = 0.02% latency, 222.98 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                  (q_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 461.58 us = 0.02% latency, 220.21 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                  (out_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 455.62 us = 0.02% latency, 223.09 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                )
+                (layer_norm1): LayerNorm(2.05 K = 0% Params, 0 MACs = 0% MACs, 122.55 us = 0.01% latency, 1.01 TFLOPS, (1024,), eps=1e-05, elementwise_affine=True)
+                (mlp): CLIPMLP(
+                  5.12 K = 0% Params, 406.58 GMACs = 0.26% MACs, 5.06 ms = 0.21% latency, 160.77 TFLOPS
+                  (activation_fn): QuickGELUActivation(0 = 0% Params, 0 MACs = 0% MACs, 1.48 ms = 0.06% latency, 0 FLOPS)
+                  (fc1): Linear(4.1 K = 0% Params, 203.29 GMACs = 0.13% MACs, 1.76 ms = 0.07% latency, 230.67 TFLOPS, in_features=1024, out_features=4096, bias=True)
+                  (fc2): Linear(1.02 K = 0% Params, 203.29 GMACs = 0.13% MACs, 1.36 ms = 0.06% latency, 298.29 TFLOPS, in_features=4096, out_features=1024, bias=True)
+                )
+                (layer_norm2): LayerNorm(2.05 K = 0% Params, 0 MACs = 0% MACs, 113.25 us = 0% latency, 1.1 TFLOPS, (1024,), eps=1e-05, elementwise_affine=True)
+              )
+              (17): CLIPEncoderLayer(
+                13.31 K = 0.01% Params, 638.51 GMACs = 0.41% MACs, 10.87 ms = 0.46% latency, 117.51 TFLOPS
+                (self_attn): CLIPAttention(
+                  4.1 K = 0% Params, 231.93 GMACs = 0.15% MACs, 5.01 ms = 0.21% latency, 92.7 TFLOPS
+                  (k_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 458.48 us = 0.02% latency, 221.7 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                  (v_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 456.81 us = 0.02% latency, 222.51 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                  (q_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 460.39 us = 0.02% latency, 220.78 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                  (out_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 457.53 us = 0.02% latency, 222.16 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                )
+                (layer_norm1): LayerNorm(2.05 K = 0% Params, 0 MACs = 0% MACs, 121.12 us = 0.01% latency, 1.02 TFLOPS, (1024,), eps=1e-05, elementwise_affine=True)
+                (mlp): CLIPMLP(
+                  5.12 K = 0% Params, 406.58 GMACs = 0.26% MACs, 5.06 ms = 0.21% latency, 160.74 TFLOPS
+                  (activation_fn): QuickGELUActivation(0 = 0% Params, 0 MACs = 0% MACs, 1.48 ms = 0.06% latency, 0 FLOPS)
+                  (fc1): Linear(4.1 K = 0% Params, 203.29 GMACs = 0.13% MACs, 1.77 ms = 0.07% latency, 230.04 TFLOPS, in_features=1024, out_features=4096, bias=True)
+                  (fc2): Linear(1.02 K = 0% Params, 203.29 GMACs = 0.13% MACs, 1.36 ms = 0.06% latency, 297.92 TFLOPS, in_features=4096, out_features=1024, bias=True)
+                )
+                (layer_norm2): LayerNorm(2.05 K = 0% Params, 0 MACs = 0% MACs, 112.77 us = 0% latency, 1.1 TFLOPS, (1024,), eps=1e-05, elementwise_affine=True)
+              )
+              (18): CLIPEncoderLayer(
+                13.31 K = 0.01% Params, 638.51 GMACs = 0.41% MACs, 10.92 ms = 0.46% latency, 117.04 TFLOPS
+                (self_attn): CLIPAttention(
+                  4.1 K = 0% Params, 231.93 GMACs = 0.15% MACs, 5.02 ms = 0.21% latency, 92.47 TFLOPS
+                  (k_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 457.29 us = 0.02% latency, 222.28 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                  (v_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 455.38 us = 0.02% latency, 223.21 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                  (q_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 465.15 us = 0.02% latency, 218.52 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                  (out_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 460.86 us = 0.02% latency, 220.55 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                )
+                (layer_norm1): LayerNorm(2.05 K = 0% Params, 0 MACs = 0% MACs, 123.02 us = 0.01% latency, 1.01 TFLOPS, (1024,), eps=1e-05, elementwise_affine=True)
+                (mlp): CLIPMLP(
+                  5.12 K = 0% Params, 406.58 GMACs = 0.26% MACs, 5.09 ms = 0.22% latency, 159.78 TFLOPS
+                  (activation_fn): QuickGELUActivation(0 = 0% Params, 0 MACs = 0% MACs, 1.49 ms = 0.06% latency, 0 FLOPS)
+                  (fc1): Linear(4.1 K = 0% Params, 203.29 GMACs = 0.13% MACs, 1.77 ms = 0.08% latency, 229.73 TFLOPS, in_features=1024, out_features=4096, bias=True)
+                  (fc2): Linear(1.02 K = 0% Params, 203.29 GMACs = 0.13% MACs, 1.36 ms = 0.06% latency, 298.03 TFLOPS, in_features=4096, out_features=1024, bias=True)
+                )
+                (layer_norm2): LayerNorm(2.05 K = 0% Params, 0 MACs = 0% MACs, 112.53 us = 0% latency, 1.1 TFLOPS, (1024,), eps=1e-05, elementwise_affine=True)
+              )
+              (19): CLIPEncoderLayer(
+                13.31 K = 0.01% Params, 638.51 GMACs = 0.41% MACs, 11.22 ms = 0.48% latency, 113.88 TFLOPS
+                (self_attn): CLIPAttention(
+                  4.1 K = 0% Params, 231.93 GMACs = 0.15% MACs, 5.19 ms = 0.22% latency, 89.43 TFLOPS
+                  (k_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 462.53 us = 0.02% latency, 219.76 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                  (v_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 462.06 us = 0.02% latency, 219.98 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                  (q_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 463.96 us = 0.02% latency, 219.08 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                  (out_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 467.78 us = 0.02% latency, 217.29 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                )
+                (layer_norm1): LayerNorm(2.05 K = 0% Params, 0 MACs = 0% MACs, 136.61 us = 0.01% latency, 908.24 GFLOPS, (1024,), eps=1e-05, elementwise_affine=True)
+                (mlp): CLIPMLP(
+                  5.12 K = 0% Params, 406.58 GMACs = 0.26% MACs, 5.12 ms = 0.22% latency, 158.69 TFLOPS
+                  (activation_fn): QuickGELUActivation(0 = 0% Params, 0 MACs = 0% MACs, 1.49 ms = 0.06% latency, 0 FLOPS)
+                  (fc1): Linear(4.1 K = 0% Params, 203.29 GMACs = 0.13% MACs, 1.77 ms = 0.08% latency, 229.27 TFLOPS, in_features=1024, out_features=4096, bias=True)
+                  (fc2): Linear(1.02 K = 0% Params, 203.29 GMACs = 0.13% MACs, 1.37 ms = 0.06% latency, 297.46 TFLOPS, in_features=4096, out_features=1024, bias=True)
+                )
+                (layer_norm2): LayerNorm(2.05 K = 0% Params, 0 MACs = 0% MACs, 125.17 us = 0.01% latency, 991.28 GFLOPS, (1024,), eps=1e-05, elementwise_affine=True)
+              )
+              (20): CLIPEncoderLayer(
+                13.31 K = 0.01% Params, 638.51 GMACs = 0.41% MACs, 10.99 ms = 0.47% latency, 116.24 TFLOPS
+                (self_attn): CLIPAttention(
+                  4.1 K = 0% Params, 231.93 GMACs = 0.15% MACs, 5.07 ms = 0.22% latency, 91.5 TFLOPS
+                  (k_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 457.76 us = 0.02% latency, 222.05 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                  (v_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 461.34 us = 0.02% latency, 220.33 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                  (q_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 459.43 us = 0.02% latency, 221.24 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                  (out_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 462.77 us = 0.02% latency, 219.64 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                )
+                (layer_norm1): LayerNorm(2.05 K = 0% Params, 0 MACs = 0% MACs, 120.4 us = 0.01% latency, 1.03 TFLOPS, (1024,), eps=1e-05, elementwise_affine=True)
+                (mlp): CLIPMLP(
+                  5.12 K = 0% Params, 406.58 GMACs = 0.26% MACs, 5.08 ms = 0.22% latency, 159.93 TFLOPS
+                  (activation_fn): QuickGELUActivation(0 = 0% Params, 0 MACs = 0% MACs, 1.49 ms = 0.06% latency, 0 FLOPS)
+                  (fc1): Linear(4.1 K = 0% Params, 203.29 GMACs = 0.13% MACs, 1.77 ms = 0.08% latency, 229.83 TFLOPS, in_features=1024, out_features=4096, bias=True)
+                  (fc2): Linear(1.02 K = 0% Params, 203.29 GMACs = 0.13% MACs, 1.36 ms = 0.06% latency, 298.03 TFLOPS, in_features=4096, out_features=1024, bias=True)
+                )
+                (layer_norm2): LayerNorm(2.05 K = 0% Params, 0 MACs = 0% MACs, 115.87 us = 0% latency, 1.07 TFLOPS, (1024,), eps=1e-05, elementwise_affine=True)
+              )
+              (21): CLIPEncoderLayer(
+                13.31 K = 0.01% Params, 638.51 GMACs = 0.41% MACs, 10.97 ms = 0.47% latency, 116.46 TFLOPS
+                (self_attn): CLIPAttention(
+                  4.1 K = 0% Params, 231.93 GMACs = 0.15% MACs, 5.05 ms = 0.21% latency, 91.81 TFLOPS
+                  (k_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 465.15 us = 0.02% latency, 218.52 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                  (v_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 459.91 us = 0.02% latency, 221.01 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                  (q_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 460.62 us = 0.02% latency, 220.67 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                  (out_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 461.34 us = 0.02% latency, 220.33 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                )
+                (layer_norm1): LayerNorm(2.05 K = 0% Params, 0 MACs = 0% MACs, 123.26 us = 0.01% latency, 1.01 TFLOPS, (1024,), eps=1e-05, elementwise_affine=True)
+                (mlp): CLIPMLP(
+                  5.12 K = 0% Params, 406.58 GMACs = 0.26% MACs, 5.1 ms = 0.22% latency, 159.51 TFLOPS
+                  (activation_fn): QuickGELUActivation(0 = 0% Params, 0 MACs = 0% MACs, 1.49 ms = 0.06% latency, 0 FLOPS)
+                  (fc1): Linear(4.1 K = 0% Params, 203.29 GMACs = 0.13% MACs, 1.77 ms = 0.08% latency, 229.73 TFLOPS, in_features=1024, out_features=4096, bias=True)
+                  (fc2): Linear(1.02 K = 0% Params, 203.29 GMACs = 0.13% MACs, 1.37 ms = 0.06% latency, 297.61 TFLOPS, in_features=4096, out_features=1024, bias=True)
+                )
+                (layer_norm2): LayerNorm(2.05 K = 0% Params, 0 MACs = 0% MACs, 116.59 us = 0% latency, 1.06 TFLOPS, (1024,), eps=1e-05, elementwise_affine=True)
+              )
+              (22): CLIPEncoderLayer(
+                13.31 K = 0.01% Params, 638.51 GMACs = 0.41% MACs, 10.97 ms = 0.47% latency, 116.43 TFLOPS
+                (self_attn): CLIPAttention(
+                  4.1 K = 0% Params, 231.93 GMACs = 0.15% MACs, 5.03 ms = 0.21% latency, 92.21 TFLOPS
+                  (k_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 459.19 us = 0.02% latency, 221.35 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                  (v_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 458.96 us = 0.02% latency, 221.47 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                  (q_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 459.43 us = 0.02% latency, 221.24 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                  (out_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 458.96 us = 0.02% latency, 221.47 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                )
+                (layer_norm1): LayerNorm(2.05 K = 0% Params, 0 MACs = 0% MACs, 121.59 us = 0.01% latency, 1.02 TFLOPS, (1024,), eps=1e-05, elementwise_affine=True)
+                (mlp): CLIPMLP(
+                  5.12 K = 0% Params, 406.58 GMACs = 0.26% MACs, 5.11 ms = 0.22% latency, 159.11 TFLOPS
+                  (activation_fn): QuickGELUActivation(0 = 0% Params, 0 MACs = 0% MACs, 1.49 ms = 0.06% latency, 0 FLOPS)
+                  (fc1): Linear(4.1 K = 0% Params, 203.29 GMACs = 0.13% MACs, 1.78 ms = 0.08% latency, 228.75 TFLOPS, in_features=1024, out_features=4096, bias=True)
+                  (fc2): Linear(1.02 K = 0% Params, 203.29 GMACs = 0.13% MACs, 1.37 ms = 0.06% latency, 297.82 TFLOPS, in_features=4096, out_features=1024, bias=True)
+                )
+                (layer_norm2): LayerNorm(2.05 K = 0% Params, 0 MACs = 0% MACs, 114.92 us = 0% latency, 1.08 TFLOPS, (1024,), eps=1e-05, elementwise_affine=True)
+              )
+              (23): CLIPEncoderLayer(
+                13.31 K = 0.01% Params, 638.51 GMACs = 0.41% MACs, 10.89 ms = 0.46% latency, 117.34 TFLOPS
+                (self_attn): CLIPAttention(
+                  4.1 K = 0% Params, 231.93 GMACs = 0.15% MACs, 5.01 ms = 0.21% latency, 92.57 TFLOPS
+                  (k_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 458.96 us = 0.02% latency, 221.47 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                  (v_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 457.53 us = 0.02% latency, 222.16 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                  (q_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 459.19 us = 0.02% latency, 221.35 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                  (out_proj): Linear(1.02 K = 0% Params, 50.82 GMACs = 0.03% MACs, 455.86 us = 0.02% latency, 222.98 TFLOPS, in_features=1024, out_features=1024, bias=True)
+                )
+                (layer_norm1): LayerNorm(2.05 K = 0% Params, 0 MACs = 0% MACs, 118.26 us = 0.01% latency, 1.05 TFLOPS, (1024,), eps=1e-05, elementwise_affine=True)
+                (mlp): CLIPMLP(
+                  5.12 K = 0% Params, 406.58 GMACs = 0.26% MACs, 5.07 ms = 0.21% latency, 160.39 TFLOPS
+                  (activation_fn): QuickGELUActivation(0 = 0% Params, 0 MACs = 0% MACs, 1.49 ms = 0.06% latency, 0 FLOPS)
+                  (fc1): Linear(4.1 K = 0% Params, 203.29 GMACs = 0.13% MACs, 1.76 ms = 0.07% latency, 231.32 TFLOPS, in_features=1024, out_features=4096, bias=True)
+                  (fc2): Linear(1.02 K = 0% Params, 203.29 GMACs = 0.13% MACs, 1.37 ms = 0.06% latency, 296.53 TFLOPS, in_features=4096, out_features=1024, bias=True)
+                )
+                (layer_norm2): LayerNorm(2.05 K = 0% Params, 0 MACs = 0% MACs, 113.73 us = 0% latency, 1.09 TFLOPS, (1024,), eps=1e-05, elementwise_affine=True)
+              )
+            )
+          )
+          (post_layernorm): LayerNorm(2.05 K = 0% Params, 0 MACs = 0% MACs, 134.23 us = 0.01% latency, 1.6 GFLOPS, (1024,), eps=1e-05, elementwise_affine=True)
+        )
+      )
+    )
+    (mm_projector): Sequential(
+      4.2 M = 3.09% Params, 253.67 GMACs = 0.16% MACs, 2.34 ms = 0.1% latency, 216.53 TFLOPS
+      (0): Linear(4.2 M = 3.09% Params, 50.73 GMACs = 0.03% MACs, 430.11 us = 0.02% latency, 235.91 TFLOPS, in_features=1024, out_features=4096, bias=True)
+      (1): GELU(0 = 0% Params, 0 MACs = 0% MACs, 117.54 us = 0% latency, 210.76 GFLOPS, approximate='none')
+      (2): Linear(4.1 K = 0% Params, 202.94 GMACs = 0.13% MACs, 1.37 ms = 0.06% latency, 296.79 TFLOPS, in_features=4096, out_features=4096, bias=True)
+    )
+  )
+  (lm_head): Linear(0 = 0% Params, 2.79 TMACs = 1.79% MACs, 16.84 ms = 0.71% latency, 331.31 TFLOPS, in_features=4096, out_features=32000, bias=False)
+)
+------------------------------------------------------------------------------

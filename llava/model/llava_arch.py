@@ -17,6 +17,7 @@ from abc import ABC, abstractmethod
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 from .multimodal_encoder.builder import build_vision_tower
 from .multimodal_projector.builder import build_vision_projector
@@ -29,7 +30,7 @@ from llava.mm_utils import get_anyres_image_grid_shape
 class LlavaMetaModel:
 
     def __init__(self, config):
-        super(LlavaMetaModel, self).__init__(config)
+        # super(LlavaMetaModel, self).__init__(config)
 
         if hasattr(config, "mm_vision_tower"):
             self.vision_tower = build_vision_tower(config, delay_load=True)
@@ -137,30 +138,64 @@ class LlavaMetaForCausalLM(ABC):
     def get_vision_tower(self):
         return self.get_model().get_vision_tower()
 
+    # def encode_images(self, images):
+    #     # print("Encoding images:", images.shape)
+    #     image_features = self.get_model().get_vision_tower()(images)
+    #     # print("Image features shape:", image_features.shape)
+    #     image_features = self.get_model().mm_projector(image_features)
+    #     print("Projected image features shape:", image_features.shape)
+    #     return image_features
+    
     def encode_images(self, images):
+        # [B, 576, D]
         image_features = self.get_model().get_vision_tower()(images)
+        # print("Original image features shape:", image_features.shape)
+        # 转成 [B, D, 24, 24]
+        B, N, D = image_features.shape
+        assert N == 24 * 24, f"Unexpected patch number: {N}"
+        image_features = image_features.transpose(1, 2).reshape(B, D, 24, 24)
+
+        # 平均池化到 12x12
+        image_features = F.avg_pool2d(image_features, kernel_size=2, stride=2)  # [B, C, 12, 12]
+
+        # 再展平成 [B, 144, D]
+        image_features = image_features.reshape(B, D, 12*12).transpose(1, 2)
+
         image_features = self.get_model().mm_projector(image_features)
+        print("Projected image features shape:", image_features.shape)
         return image_features
 
     def prepare_inputs_labels_for_multimodal(
         self, input_ids, position_ids, attention_mask, past_key_values, labels,
         images, image_sizes=None
     ):
+
+        # print("Total IMAGE_TOKEN_INDEX count:", (input_ids == IMAGE_TOKEN_INDEX).sum())
+
         vision_tower = self.get_vision_tower()
+        print("images:", images.shape if isinstance(images, torch.Tensor) else [x.shape for x in images] if images is not None else None)
         if vision_tower is None or images is None or input_ids.shape[1] == 1:
             return input_ids, position_ids, attention_mask, past_key_values, None, labels
-
         if type(images) is list or images.ndim == 5:
+            # print("images shape:", images.shape if isinstance(images, torch.Tensor) else [x.shape for x in images])
+            # for image in images:
+            #     print("image shapes:", image.shape)
             if type(images) is list:
                 images = [x.unsqueeze(0) if x.ndim == 3 else x for x in images]
+                
             concat_images = torch.cat([image for image in images], dim=0)
+            # print("Concatenated images shape:", concat_images.shape)
             image_features = self.encode_images(concat_images)
             split_sizes = [image.shape[0] for image in images]
+            # print("Split sizes:", split_sizes)
+            # print("Image features shape before split:", image_features.shape)
             image_features = torch.split(image_features, split_sizes, dim=0)
+            # print("Image features shapes after split:", [x.shape for x in image_features]) 
             mm_patch_merge_type = getattr(self.config, 'mm_patch_merge_type', 'flat')
             image_aspect_ratio = getattr(self.config, 'image_aspect_ratio', 'square')
             if mm_patch_merge_type == 'flat':
                 image_features = [x.flatten(0, 1) for x in image_features]
+                # print("Image features after flatten:", [x.shape for x in image_features])
             elif mm_patch_merge_type.startswith('spatial'):
                 new_image_features = []
                 for image_idx, image_feature in enumerate(image_features):
@@ -198,8 +233,11 @@ class LlavaMetaForCausalLM(ABC):
                 image_features = new_image_features
             else:
                 raise ValueError(f"Unexpected mm_patch_merge_type: {self.config.mm_patch_merge_type}")
-        else:
-            image_features = self.encode_images(images)
+        elif isinstance(images, torch.Tensor):
+            if images.numel() == 0:
+                image_features = None
+            else:
+                image_features = self.encode_images(images)
 
         # TODO: image start / end is not implemented here to support pretraining.
         if getattr(self.config, 'tune_mm_mlp_adapter', False) and getattr(self.config, 'mm_use_im_start_end', False):
@@ -229,8 +267,13 @@ class LlavaMetaForCausalLM(ABC):
         new_input_embeds = []
         new_labels = []
         cur_image_idx = 0
+
         for batch_idx, cur_input_ids in enumerate(input_ids):
             num_images = (cur_input_ids == IMAGE_TOKEN_INDEX).sum()
+            # print("num_images:", num_images)
+            # print("image_features shape:",image_features.shape if isinstance(image_features, torch.Tensor) else [x.shape for x in image_features])
+            # print("image_features num:", len(image_features) if len(image_features) > 0 else None)
+
             if num_images == 0:
                 cur_image_features = image_features[cur_image_idx]
                 cur_input_embeds_1 = self.get_model().embed_tokens(cur_input_ids)
@@ -320,6 +363,9 @@ class LlavaMetaForCausalLM(ABC):
 
         if _position_ids is None:
             position_ids = None
+
+
+        print("new_input_embeds:", new_input_embeds.shape)
 
         return None, position_ids, attention_mask, past_key_values, new_input_embeds, new_labels
 

@@ -866,6 +866,21 @@ def make_supervised_data_module(tokenizer: transformers.PreTrainedTokenizer,
                 eval_dataset=None,
                 data_collator=data_collator)
 
+def register_gradient_hooks(model):
+    print("\n🚀 注册梯度 Hooks")
+    for name, param in model.named_parameters():
+        if not param.requires_grad:
+            continue
+
+        if 'self_attn.gate' in name:
+            def make_hook(pname):
+                def hook_fn(grad):
+                    if grad is not None:
+                        print(f"[Gate] {pname}: {grad.norm():.6f}")
+                    return grad
+                return hook_fn
+            param.register_hook(make_hook(name))
+
 
 def train(attn_implementation=None):
     global local_rank
@@ -914,6 +929,7 @@ def train(attn_implementation=None):
             config.expert_nums = model_args.expert_nums
             config.topk = model_args.topk
             config.rope_theta=10000.0
+            config.attention_dropout=0.0,
             config.attention_bias=False
 
             # print(f"配置检查:")
@@ -937,12 +953,12 @@ def train(attn_implementation=None):
             if training_args.only_train_gate:
 
                 for n,p in model.named_parameters():
-                                p.requires_grad_(False)
+                    p.requires_grad_(False)
                                 
                 for n,p in model.named_parameters():
                     if "self_attn.gate" in n:
                         p.requires_grad_(True)
-                        print(n)
+                        # print(n)
 
                 # for p in model.get_model().mm_projector.parameters():
                 #     p.requires_grad = True
@@ -1077,38 +1093,13 @@ def train(attn_implementation=None):
 
     data_module = make_supervised_data_module(tokenizer=tokenizer,
                                               data_args=data_args,training_args=training_args)
-                                              
-            
-    # 为所有 gate 参数注册钩子
-    gate_params = []
-
-    for name, param in model.named_parameters():
-        if 'self_attn.gate' in name:
-            gate_params.append((name, param))
-            print(f"找到目标参数: {name}, 形状: {param.shape}")
-
-    if gate_params:
-        for name, param in gate_params:
-            def make_hook(param_name):
-                def print_grad(grad):
-                    if grad is not None:
-                        grad_norm = torch.norm(grad).item()
-                        grad_mean_abs = torch.mean(torch.abs(grad)).item()
-                        print(f"参数 {param_name} 的梯度: L2 范数 = {grad_norm:.6f}, 平均绝对值 = {grad_mean_abs:.6f}")
-                    else:
-                        print(f"参数 {param_name} 的梯度为 None")
-                return print_grad
-            
-            param.register_hook(make_hook(name))
-        
-        print(f"总共在 {len(gate_params)} 个参数上注册了 hook")
-    else:
-        print("未在模型参数中找到目标参数 'self_attn.gate'。")
 
     trainer = LLaVATrainer(model=model,
                     tokenizer=tokenizer,
                     args=training_args,
                     **data_module)
+
+    # register_gradient_hooks(model)
 
     if list(pathlib.Path(training_args.output_dir).glob("checkpoint-*")):
         trainer.train(resume_from_checkpoint=True)

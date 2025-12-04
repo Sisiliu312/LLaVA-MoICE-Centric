@@ -89,6 +89,12 @@ class LlavaLlamaForCausalLM(LlamaForCausalLM, LlavaMetaForCausalLM):
                 image_sizes
             )
 
+        # ⭐ 将 _image_token_info 传递给 model
+        image_token_info = getattr(self, '_image_token_info', None)
+        if image_token_info is not None:
+            self.model._image_token_info = image_token_info
+            # print(f"✅ [LlavaLlamaForCausalLM] 传递 _image_token_info 给 model: {image_token_info}")
+
         return super().forward(
             input_ids=input_ids,
             attention_mask=attention_mask,
@@ -99,7 +105,7 @@ class LlavaLlamaForCausalLM(LlamaForCausalLM, LlavaMetaForCausalLM):
             use_cache=use_cache,
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
-            return_dict=return_dict
+            return_dict=return_dict,
         )
 
     @torch.no_grad()

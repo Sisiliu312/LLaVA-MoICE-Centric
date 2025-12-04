@@ -137,10 +137,9 @@ class LlamaConfig(PretrainedConfig):
         attention_bias=False,
         attention_dropout=0.0,
         num_experts=0,
-        # num_heads=32,
         # 新增
         expert_nums=0,
-        topk=1,
+        topk=0,
         base_set=[10000],
         **kwargs,
     ):
@@ -171,7 +170,6 @@ class LlamaConfig(PretrainedConfig):
         self.expert_nums = expert_nums
         self.topk = topk
         self.base_set = base_set
-        # self.num_heads = num_heads
 
         super().__init__(
             pad_token_id=pad_token_id,

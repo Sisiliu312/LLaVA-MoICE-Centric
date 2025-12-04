@@ -138,42 +138,56 @@ class LlavaMetaForCausalLM(ABC):
     def get_vision_tower(self):
         return self.get_model().get_vision_tower()
 
-    # def encode_images(self, images):
-    #     # print("Encoding images:", images.shape)
-    #     image_features = self.get_model().get_vision_tower()(images)
-    #     # print("Image features shape:", image_features.shape)
-    #     image_features = self.get_model().mm_projector(image_features)
-    #     print("Projected image features shape:", image_features.shape)
-    #     return image_features
-    
     def encode_images(self, images):
-        # [B, 576, D]
+        # print("Encoding images:", images.shape)
         image_features = self.get_model().get_vision_tower()(images)
-        # print("Original image features shape:", image_features.shape)
-        # 转成 [B, D, 24, 24]
-        B, N, D = image_features.shape
-        assert N == 24 * 24, f"Unexpected patch number: {N}"
-        image_features = image_features.transpose(1, 2).reshape(B, D, 24, 24)
-
-        # 平均池化到 12x12
-        image_features = F.avg_pool2d(image_features, kernel_size=2, stride=2)  # [B, C, 12, 12]
-
-        # 再展平成 [B, 144, D]
-        image_features = image_features.reshape(B, D, 12*12).transpose(1, 2)
-
+        # print("Image features shape:", image_features.shape)
         image_features = self.get_model().mm_projector(image_features)
-        print("Projected image features shape:", image_features.shape)
+        # print("Projected image features shape:", image_features.shape)
         return image_features
+    
+    # def encode_images(self, images):
+    #     # [B, 576, D]
+    #     image_features = self.get_model().get_vision_tower()(images)
+    #     # print("Original image features shape:", image_features.shape)
+    #     # 转成 [B, D, 24, 24]
+    #     B, N, D = image_features.shape
+    #     assert N == 24 * 24, f"Unexpected patch number: {N}"
+    #     image_features = image_features.transpose(1, 2).reshape(B, D, 24, 24)
+
+    #     # 平均池化到 12x12
+    #     image_features = F.avg_pool2d(image_features, kernel_size=2, stride=2)  # [B, C, 12, 12]
+
+    #     # 再展平成 [B, 144, D]
+    #     image_features = image_features.reshape(B, D, 12*12).transpose(1, 2)
+
+    #     image_features = self.get_model().mm_projector(image_features)
+    #     # print("Projected image features shape:", image_features.shape)
+    #     return image_features
 
     def prepare_inputs_labels_for_multimodal(
         self, input_ids, position_ids, attention_mask, past_key_values, labels,
         images, image_sizes=None
     ):
+        if isinstance(input_ids, torch.Tensor):
+            # print("\n" + "🔍"*35)
+            # print("🔍 [DEBUG] 原始 input_ids 分析:")
+            # print(f"   input_ids shape: {input_ids.shape}")
+            
+            for batch_idx in range(input_ids.shape[0]):
+                cur_input_ids = input_ids[batch_idx]
+                image_positions = torch.where(cur_input_ids == IMAGE_TOKEN_INDEX)[0]
+                
+                # print(f"\n   Batch {batch_idx}:")
+                # print(f"     序列长度: {cur_input_ids.shape[0]}")
+                # print(f"     IMAGE_TOKEN 数量: {len(image_positions)}")
+            
+            # print("🔍"*35 + "\n")
 
         # print("Total IMAGE_TOKEN_INDEX count:", (input_ids == IMAGE_TOKEN_INDEX).sum())
 
         vision_tower = self.get_vision_tower()
-        print("images:", images.shape if isinstance(images, torch.Tensor) else [x.shape for x in images] if images is not None else None)
+        # print("images:", images.shape if isinstance(images, torch.Tensor) else [x.shape for x in images] if images is not None else None)
         if vision_tower is None or images is None or input_ids.shape[1] == 1:
             return input_ids, position_ids, attention_mask, past_key_values, None, labels
         if type(images) is list or images.ndim == 5:
@@ -270,10 +284,7 @@ class LlavaMetaForCausalLM(ABC):
 
         for batch_idx, cur_input_ids in enumerate(input_ids):
             num_images = (cur_input_ids == IMAGE_TOKEN_INDEX).sum()
-            # print("num_images:", num_images)
-            # print("image_features shape:",image_features.shape if isinstance(image_features, torch.Tensor) else [x.shape for x in image_features])
-            # print("image_features num:", len(image_features) if len(image_features) > 0 else None)
-
+            
             if num_images == 0:
                 cur_image_features = image_features[cur_image_idx]
                 cur_input_embeds_1 = self.get_model().embed_tokens(cur_input_ids)
@@ -296,14 +307,48 @@ class LlavaMetaForCausalLM(ABC):
             cur_new_input_embeds = []
             cur_new_labels = []
 
+            # ✅ 记录第一个图像的起始位置（每个batch都重新计算）
+            first_image_start = None
+            total_image_len = 0  # ✅ 累计所有图像的长度
+            current_position = 0
+
             for i in range(num_images + 1):
+                # 添加文本并立即累加长度
                 cur_new_input_embeds.append(cur_input_embeds_no_im[i])
                 cur_new_labels.append(cur_labels_noim[i])
+                current_position += cur_input_embeds_no_im[i].shape[0]
+                
                 if i < num_images:
+                    # ✅ 记录第一个图像的起始位置
+                    if first_image_start is None:
+                        first_image_start = current_position
+                    
+                    # 获取当前图像特征
                     cur_image_features = image_features[cur_image_idx]
                     cur_image_idx += 1
+                    
+                    # ✅ 累加图像长度
+                    total_image_len += cur_image_features.shape[0]
+                    
                     cur_new_input_embeds.append(cur_image_features)
                     cur_new_labels.append(torch.full((cur_image_features.shape[0],), IGNORE_INDEX, device=cur_labels.device, dtype=cur_labels.dtype))
+                    current_position += cur_image_features.shape[0]
+
+            # ✅ 直接存储，不用 batch_idx 作为 key
+            if first_image_start is not None:
+                if not hasattr(self, '_image_token_info'):
+                    self._image_token_info = {}
+                
+                # ✅ 只存储最新的信息（batch_size=1 时足够）
+                self._image_token_info['image_start'] = first_image_start
+                self._image_token_info['image_len'] = total_image_len
+                # print("\n" + "="*70)
+                # print("📍 [llava_arch.py] 图像位置检测:")
+                # print(f"   设置 _image_token_info 在对象: {type(self).__name__}")
+                # print(f"   对象 id: {id(self)}")
+                # print(f"   image_start: {first_image_start}")
+                # print(f"   image_len: {total_image_len}")
+                # print("="*70 + "\n")
 
             cur_new_input_embeds = [x.to(self.device) for x in cur_new_input_embeds]
 
@@ -350,6 +395,7 @@ class LlavaMetaForCausalLM(ABC):
                     position_ids[i, :cur_len] = torch.arange(0, cur_len, dtype=position_ids.dtype, device=position_ids.device)
 
         new_input_embeds = torch.stack(new_input_embeds_padded, dim=0)
+        # print("New input embeds shape:", new_input_embeds.shape)
 
         if _labels is None:
             new_labels = None
@@ -363,9 +409,6 @@ class LlavaMetaForCausalLM(ABC):
 
         if _position_ids is None:
             position_ids = None
-
-
-        print("new_input_embeds:", new_input_embeds.shape)
 
         return None, position_ids, attention_mask, past_key_values, new_input_embeds, new_labels
 

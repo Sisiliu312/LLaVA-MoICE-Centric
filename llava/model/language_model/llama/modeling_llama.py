@@ -1,3 +1,4 @@
+# MoICE Paper
 # coding=utf-8
 # Copyright 2022 EleutherAI and the HuggingFace Inc. team. All rights reserved.
 #
@@ -27,6 +28,7 @@ import torch.nn.functional as F
 import torch.utils.checkpoint
 from torch import nn
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
+from llava.model.language_model.llama.image_centric import ImageCentricConfig, ImageCentricHeadDetector
 
 from transformers.activations import ACT2FN
 from transformers.modeling_attn_mask_utils import AttentionMaskConverter, _prepare_4d_causal_attention_mask
@@ -381,7 +383,7 @@ def repeat_kv_moe(hidden_states: torch.Tensor, n_rep: int) -> torch.Tensor:
     hidden_states = hidden_states[:, :, :,None, :].expand(batch, slen, num_key_value_heads, n_rep, head_dim)
     return hidden_states.reshape(batch,slen, num_key_value_heads * n_rep, head_dim)
 
-nn
+
 class LlamaAttention(nn.Module):
     """Multi-headed attention from 'Attention Is All You Need' paper"""
 
@@ -399,31 +401,23 @@ class LlamaAttention(nn.Module):
         self.base_set = config.base_set
         self.expert_nums = config.expert_nums
         self.topk = config.topk
-
         self.gate_1 = nn.Linear(self.head_dim, self.expert_nums, bias=False)
         self.gate_2 = nn.Linear(self.expert_nums, self.expert_nums, bias=False)
         self.gate_3 = nn.Linear(self.head_dim, self.expert_nums, bias=False)
         self.act_fn = ACT2FN[config.hidden_act]
-
-        # print("=======================gate 层初始化=======================")
-        # print(f"  gate_1.weight: {self.gate_1.weight.shape}, 均值={self.gate_1.weight.mean().item():.6f}, 标准差={self.gate_1.weight.std().item():.6f}")
-        # print(f"  gate_2.weight: {self.gate_2.weight.shape}, 均值={self.gate_2.weight.mean().item():.6f}, 标准差={self.gate_2.weight.std().item():.6f}")
-        # print(f"  gate_3.weight: {self.gate_3.weight.shape}, 均值={self.gate_3.weight.mean().item():.6f}, 标准差={self.gate_3.weight.std().item():.6f}")
+        
+        
 
         if (self.head_dim * self.num_heads) != self.hidden_size:
             raise ValueError(
                 f"hidden_size must be divisible by num_heads (got `hidden_size`: {self.hidden_size}"
                 f" and `num_heads`: {self.num_heads})."
             )
-        
         self.q_proj = nn.Linear(self.hidden_size, self.num_heads * self.head_dim, bias=config.attention_bias)
         self.k_proj = nn.Linear(self.hidden_size, self.num_key_value_heads * self.head_dim, bias=config.attention_bias)
         self.v_proj = nn.Linear(self.hidden_size, self.num_key_value_heads * self.head_dim, bias=config.attention_bias)
         self.o_proj = nn.Linear(self.num_heads * self.head_dim, self.hidden_size, bias=config.attention_bias)
         self._init_rope()
-
-        # print("=======================q 层初始化=======================")
-        # print(f"  q_proj.weight: {self.q_proj.weight.shape}, 均值={self.q_proj.weight.mean().item():.6f}, 标准差={self.q_proj.weight.std().item():.6f}")
 
     def _init_rope(self):
         if self.config.rope_scaling is None:
@@ -476,13 +470,64 @@ class LlamaAttention(nn.Module):
 
         raise RuntimeError("See LlamaFlashAttention2")
 
-
 class LlamaFlashAttention2(LlamaAttention):
     """
-    Llama flash attention module. This module inherits from `LlamaAttention` as the weights of the module stays
-    untouched. The only required change would be on the forward pass where it needs to correctly call the public API of
-    flash attention and deal with padding tokens in case the input contains any of them.
+    Llama flash attention module with MoE router and image-centric head detection.
     """
+
+    def __init__(self, config: LlamaConfig):
+        super().__init__(config)
+        
+        # ⭐ 初始化 image-centric head detector（所有层共享）
+        from llava.model.language_model.llama.image_centric import (
+            ImageCentricConfig, 
+            ImageCentricHeadDetector
+        )
+        
+        if not hasattr(LlamaFlashAttention2, '_shared_detector'):
+            detector_config = ImageCentricConfig()  # 使用默认值
+    
+            # 🔍 调试：打印参数
+            # print("\n" + "="*60)
+            # print("🔧 ImageCentricHeadDetector 初始化参数:")
+            # print(f"   tau (sink token 阈值): {detector_config.tau}")
+            # print(f"   rho (portion 上限): {detector_config.rho}")
+            # print(f"   summ (summation 下限): {detector_config.summ}")
+            # print(f"   dim_sink: {detector_config.dim_sink}")
+            # print("="*60 + "\n")
+            LlamaFlashAttention2._shared_detector = ImageCentricHeadDetector(detector_config)
+        
+        self.image_centric_detector = LlamaFlashAttention2._shared_detector
+        self.fixed_base = 10000.0
+        
+        # 初始化固定 RoPE
+        self._init_fixed_rope()
+    
+    def _init_fixed_rope(self):
+        """Initialize fixed RoPE for image-centric heads."""
+        if self.config.rope_scaling is None:
+            self.fixed_rotary_emb = LlamaRotaryEmbedding(
+                self.head_dim,
+                max_position_embeddings=self.max_position_embeddings,
+                base=[self.fixed_base],
+            )
+        else:
+            scaling_type = self.config.rope_scaling["type"]
+            scaling_factor = self.config.rope_scaling["factor"]
+            if scaling_type == "linear":
+                self.fixed_rotary_emb = LlamaLinearScalingRotaryEmbedding(
+                    self.head_dim,
+                    max_position_embeddings=self.max_position_embeddings,
+                    scaling_factor=scaling_factor,
+                    base=[self.fixed_base],
+                )
+            elif scaling_type == "dynamic":
+                self.fixed_rotary_emb = LlamaDynamicNTKScalingRotaryEmbedding(
+                    self.head_dim,
+                    max_position_embeddings=self.max_position_embeddings,
+                    scaling_factor=scaling_factor,
+                    base=[self.fixed_base],
+                )
 
     def forward(
         self,
@@ -493,141 +538,375 @@ class LlamaFlashAttention2(LlamaAttention):
         output_attentions: bool = False,
         use_cache: bool = False,
         output_router_logits: bool = False,
+        image_token_info: Optional[dict] = None, 
         **kwargs,
     ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Tuple[torch.Tensor]]]:
-        # LlamaFlashAttention2 attention does not support output_attentions
+        
         if "padding_mask" in kwargs:
             warnings.warn(
-                "Passing `padding_mask` is deprecated and will be removed in v4.37. Please make sure use `attention_mask` instead.`"
+                "Passing `padding_mask` is deprecated and will be removed in v4.37. "
+                "Please make sure use `attention_mask` instead.`"
             )
-
-            # overwrite attention_mask with padding_mask
             attention_mask = kwargs.pop("padding_mask")
 
         output_attentions = False
-
         bsz, q_len, _ = hidden_states.size()
+
+        # 获取图像位置信息
+        image_start = None
+        image_len = None
+
+        if image_token_info is not None:
+            image_start = image_token_info.get('image_start')
+            image_len = image_token_info.get('image_len')
+            
+            layer_idx = getattr(self, 'layer_idx', -1)
+        #     if layer_idx == 0:  # 只在第一层打印
+        #         print("\n" + "="*70)
+        #         print("🔍 [LlamaFlashAttention2] 接收到 image_token_info:")
+        #         print(f"   image_start: {image_start}")
+        #         print(f"   image_len: {image_len}")
+        #         print("="*70 + "\n")
+        # else:
+        #     print("\n⚠️ [LlamaFlashAttention2] 没有接收到 image_token_info!")
+
+        
+        # 保存 hidden_states（用于 sink token 检测）
+        hidden_states_before_attn = hidden_states
 
         query_states = self.q_proj(hidden_states)
         key_states = self.k_proj(hidden_states)
         value_states = self.v_proj(hidden_states)
-        
 
+        return self._forward_with_adaptive_router(
+            query_states, key_states, value_states,
+            attention_mask, position_ids, past_key_value,
+            use_cache, output_router_logits, bsz, q_len,
+            image_start, image_len,
+            hidden_states_before_attn
+        )
+
+    def _forward_with_adaptive_router(
+        self, 
+        query_states, key_states, value_states,
+        attention_mask, position_ids, past_key_value,
+        use_cache, output_router_logits, bsz, q_len,
+        image_start, image_len,
+        hidden_states_before_attn
+    ):
+        """Forward pass with adaptive router."""
         kv_seq_len = q_len
         if past_key_value is not None:
             kv_seq_len += past_key_value[0].shape[1]
 
-        query_states = query_states.view(bsz , q_len, self.num_heads, self.head_dim)
-        key_states = key_states.view(bsz,q_len, self.num_key_value_heads, self.head_dim)
-        value_states = value_states.view(bsz,q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
-        query_states = query_states.unsqueeze(0).repeat(self.expert_nums,1,1,1,1) # expert_nums bsz q_len head dim
+        # Reshape states
+
+        query_states = query_states.view(bsz, q_len, self.num_heads, self.head_dim)
+        key_states = key_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim)
+        value_states = value_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
         
-        cos, sin = self.rotary_emb(value_states, seq_len=kv_seq_len)  # [len(base_set),kv_seq_len,dim]
-        query_states = apply_rotary_pos_emb_q(query_states,cos[:, position_ids[0],:],sin[:, position_ids[0], :],dim=-2) 
-        router_logits = query_states[0]  # query_states.mean(0)
-        router_logits = self.act_fn(self.gate_1(router_logits)) * self.gate_3(router_logits)
-        router_logits = self.gate_2(router_logits)
-        routing_weights = nn.functional.softmax(router_logits, dim=-1, dtype=torch.float) # [bsz,q_len,heads,expert_nums]
-        routing_topk, selected_experts = torch.topk(router_logits, self.topk, dim=-1) #selected_experts/routing_weights ：[bsz, q_len, heads, topk]
-
-        # print("=======================gate 层初始化=======================")
-        # print(f"  gate_1.weight: {self.gate_1.weight.shape}, 均值={self.gate_1.weight.mean().item():.6f}, 标准差={self.gate_1.weight.std().item():.6f}")
-        # print(f"  gate_2.weight: {self.gate_2.weight.shape}, 均值={self.gate_2.weight.mean().item():.6f}, 标准差={self.gate_2.weight.std().item():.6f}")
-        # print(f"  gate_3.weight: {self.gate_3.weight.shape}, 均值={self.gate_3.weight.mean().item():.6f}, 标准差={self.gate_3.weight.std().item():.6f}")
-
-        # print("=======================q 层初始化=======================")
-        # print(f"  q_proj.weight: {self.q_proj.weight.shape}, 均值={self.q_proj.weight.mean().item():.6f}, 标准差={self.q_proj.weight.std().item():.6f}")
+        layer_idx = getattr(self, 'layer_idx', -1)
         
-        mask = torch.zeros_like(routing_weights, dtype=torch.bool)
-        mask.scatter_(-1, selected_experts, 1)
-        routing_weights = torch.where(mask, routing_weights, 0)
-        # use this selection code when encounter gradient backward error
-        # routing_weights = torch.where(routing_weights >= routing_topk[:,:,:,-1].unsqueeze(-1),routing_weights,0)
+        # ⭐⭐⭐ 核心：检测 image-centric heads ⭐⭐⭐
+        if (self.training and 
+            self.image_centric_detector is not None and
+            image_start is not None and 
+            image_len is not None):
+            
+            # 检查是否已有缓存的检测结果
+            if layer_idx not in self.image_centric_detector.detection_cache:
+                # print(f"✅ [Layer {layer_idx}] 开始检测 image-centric heads...")
+
+                # 计算 attention weights
+                query_for_detect = query_states.transpose(1, 2)
+                key_for_detect = key_states.transpose(1, 2)
+                
+                # 使用 fixed RoPE
+                cos_fixed, sin_fixed = self.fixed_rotary_emb(value_states, seq_len=kv_seq_len)
+                if cos_fixed.dim() == 3:
+                    cos_fixed = cos_fixed[0]
+                    sin_fixed = sin_fixed[0]
+                
+                query_for_detect, key_for_detect = apply_rotary_pos_emb(
+                    query_for_detect, key_for_detect, cos_fixed, sin_fixed, position_ids
+                )
+                
+                # Repeat KV
+                key_for_detect = repeat_kv(key_for_detect, self.num_key_value_groups)
+                
+                # 计算 attention weights
+                attn_weights = torch.matmul(query_for_detect, key_for_detect.transpose(2, 3)) / math.sqrt(self.head_dim)
+                if attention_mask is not None:
+                    if attention_mask.dim() == 2:
+                        attn_weights = attn_weights + attention_mask.unsqueeze(1).unsqueeze(2)
+                    else:
+                        attn_weights = attn_weights + attention_mask
+                
+                attn_weights = nn.functional.softmax(attn_weights, dim=-1, dtype=torch.float32)
+                
+                # 执行检测
+                self.image_centric_detector.detect_from_attention(
+                    attn=attn_weights,
+                    hidden_states=hidden_states_before_attn,
+                    image_start=image_start,
+                    image_len=image_len,
+                    layer_idx=layer_idx
+                )
         
-        
-        routing_weights /= routing_weights.sum(dim=-1, keepdim=True)
-        routing_weights = routing_weights.to(hidden_states.dtype)
-        routing_weights = routing_weights.permute(3,0,1,2).contiguous() # [expert_nums,bsz, q_len,head]
-
-        if past_key_value is not None:
-            key_states = torch.cat([past_key_value[0], key_states], dim=1) # [bsz,kv_seq_len,heads,dim]
-            value_states = torch.cat([past_key_value[1], value_states], dim=2) # [bsz,heads,kv_seq_len,dim]
-
-        past_key_value = (key_states, value_states) if use_cache else None
-       
-        key_states = repeat_kv_moe(key_states, self.num_key_value_groups)  # [bsz,kv_seq_len,heads,dim]
-        value_states = repeat_kv(value_states, self.num_key_value_groups) # [bsz,heads,kv_seq_len,dim]
-        
-        query_states = query_states.view(self.expert_nums*bsz,q_len,self.num_heads, self.head_dim) # expert_nums bsz q_len head dim
-
-        key_states = key_states.unsqueeze(0).repeat(self.expert_nums,1,1,1,1) # expert_nums bsz kv_seq_len head dim
-        key_states = apply_rotary_pos_emb_q(key_states,cos,sin,dim=-2).view(self.expert_nums*bsz,kv_seq_len,self.num_heads, self.head_dim)
-
-        value_states = value_states.transpose(1,2).unsqueeze(0).repeat(self.expert_nums,1,1,1,1).view(self.expert_nums*bsz,kv_seq_len,self.num_heads, self.head_dim) # expert_nums bsz kv_seq_len head dim
-
-        
-        input_dtype = query_states.dtype
-        dropout_rate = 0.0
-        if input_dtype == torch.float32:
-            # Handle the case where the model is quantized
-            if hasattr(self.config, "_pre_quantization_dtype"):
-                target_dtype = self.config._pre_quantization_dtype
-            else:
-                target_dtype = self.q_proj.weight.dtype
-
-            logger.warning_once(
-                f"The input hidden states seems to be silently casted in float32, this might be related to"
-                f" the fact you have upcasted embedding or layer norm layers in float32. We will cast back the input in"
-                f" {target_dtype}."
+        # ⭐⭐⭐ 获取 image-centric head mask ⭐⭐⭐
+        image_centric_mask = None
+        if self.image_centric_detector is not None:
+            image_centric_mask = self.image_centric_detector.get_image_centric_head_mask(
+                layer_idx, self.num_heads, query_states.device
             )
-
-            query_states = query_states.to(target_dtype)
-            key_states = key_states.to(target_dtype)
-            value_states = value_states.to(target_dtype)
-        if attention_mask is not None:
-            attention_mask = attention_mask.unsqueeze(0).repeat(self.expert_nums,1,1).view(self.expert_nums*bsz,-1)
-        attn_output = self._flash_attention_forward(
-            query_states, key_states, value_states, attention_mask, q_len, dropout=dropout_rate
+            if (image_centric_mask.any() and 
+                layer_idx not in getattr(LlamaFlashAttention2, '_printed_layers', set())):
+                
+                if not hasattr(LlamaFlashAttention2, '_printed_layers'):
+                    LlamaFlashAttention2._printed_layers = set()
+                
+                LlamaFlashAttention2._printed_layers.add(layer_idx)
+                
+                ic_heads = torch.nonzero(image_centric_mask).squeeze(-1).tolist()
+                # print(f"\n[Layer {layer_idx}] Image-Centric Heads Detected:")
+                # print(f"  🔒 {len(ic_heads)} heads using FIXED RoPE (base={self.fixed_base:.0f})")
+                # print(f"  🔄 {self.num_heads - len(ic_heads)} heads using MoE RoPE")
+           
+        # ⭐⭐⭐ 正常的 MoE forward ⭐⭐⭐
+        query_states_router = query_states.unsqueeze(0).repeat(self.expert_nums, 1, 1, 1, 1)
+        
+        cos_moe, sin_moe = self.rotary_emb(value_states, seq_len=kv_seq_len)
+        cos_fixed, sin_fixed = self.fixed_rotary_emb(value_states, seq_len=kv_seq_len)
+        
+        if cos_fixed.dim() == 3:
+            cos_fixed = cos_fixed[0]
+            sin_fixed = sin_fixed[0]
+        
+        # ⭐⭐⭐ 应用混合 RoPE：image-centric heads 用 fixed，其他用 MoE ⭐⭐⭐
+        if image_centric_mask is not None and image_centric_mask.any():
+            query_states_processed = self._apply_mixed_rope(
+                query_states_router, 
+                cos_moe, sin_moe, 
+                cos_fixed, sin_fixed,
+                position_ids, 
+                image_centric_mask
+            )
+        else:
+            query_states_processed = apply_rotary_pos_emb_q(
+                query_states_router, 
+                cos_moe[:, position_ids[0], :], 
+                sin_moe[:, position_ids[0], :], 
+                dim=-2
+            )
+        
+        router_logits = self._compute_adaptive_router_logits(
+            query_states_processed[0],
+            image_centric_mask
         )
         
-        attn_output = routing_weights.unsqueeze(-1) * attn_output.view(self.expert_nums,bsz,q_len,self.num_heads,self.head_dim)
-        attn_output = torch.sum(attn_output,dim=0) #[batch_size,q_len, heads,head_dim]
+        routing_weights = self._compute_routing_weights(
+            router_logits, 
+            image_centric_mask
+        )
+        
+        if past_key_value is not None:
+            key_states = torch.cat([past_key_value[0], key_states], dim=1)
+            value_states = torch.cat([past_key_value[1], value_states], dim=2)
+        
+        past_key_value = (key_states, value_states) if use_cache else None
+        
+        key_states = repeat_kv_moe(key_states, self.num_key_value_groups)
+        value_states = repeat_kv(value_states, self.num_key_value_groups)
+        
+        query_states_flash = query_states_processed.view(
+            self.expert_nums * bsz, q_len, self.num_heads, self.head_dim
+        )
+        
+        key_states_expanded = key_states.unsqueeze(0).repeat(self.expert_nums, 1, 1, 1, 1)
+        key_states_flash = apply_rotary_pos_emb_q(
+            key_states_expanded, cos_moe, sin_moe, dim=-2
+        ).view(self.expert_nums * bsz, kv_seq_len, self.num_heads, self.head_dim)
+        
+        value_states_flash = value_states.transpose(1, 2).unsqueeze(0).repeat(
+            self.expert_nums, 1, 1, 1, 1
+        ).view(self.expert_nums * bsz, kv_seq_len, self.num_heads, self.head_dim)
+        
+        input_dtype = query_states_flash.dtype
+        dropout_rate = 0.0
+        if input_dtype == torch.float32:
+            target_dtype = getattr(self.config, "_pre_quantization_dtype", self.q_proj.weight.dtype)
+            logger.warning_once(
+                f"The input hidden states seems to be silently casted in float32. "
+                f"We will cast back the input in {target_dtype}."
+            )
+            query_states_flash = query_states_flash.to(target_dtype)
+            key_states_flash = key_states_flash.to(target_dtype)
+            value_states_flash = value_states_flash.to(target_dtype)
+        
+        if attention_mask is not None:
+            attention_mask = attention_mask.unsqueeze(0).repeat(
+                self.expert_nums, 1, 1
+            ).view(self.expert_nums * bsz, -1)
+        
+        attn_output = self._flash_attention_forward(
+            query_states_flash, key_states_flash, value_states_flash, 
+            attention_mask, q_len, dropout=dropout_rate
+        )
+        
+        attn_output = routing_weights.unsqueeze(-1) * attn_output.view(
+            self.expert_nums, bsz, q_len, self.num_heads, self.head_dim
+        )
+        attn_output = torch.sum(attn_output, dim=0)
         
         attn_output = attn_output.reshape(bsz, q_len, self.hidden_size).contiguous()
         attn_output = self.o_proj(attn_output)
+        
+        out_router_logits = router_logits if output_router_logits else None
+        return attn_output, None, past_key_value, out_router_logits
+    
+    def _apply_mixed_rope(
+        self, 
+        query_states, 
+        cos_moe, sin_moe,
+        cos_fixed, sin_fixed,
+        position_ids,
+        image_centric_mask
+    ):
+        """Apply mixed RoPE: fixed for image-centric heads, MoE for others."""
+        expert_nums, bsz, q_len, num_heads, head_dim = query_states.shape
 
-        if not output_attentions:
-            attn_weights = None
+        layer_idx = getattr(self, 'layer_idx', -1)
 
-        out_router_logits = router_logits
-        if not output_router_logits:
-            out_router_logits = None
+        # ⭐⭐⭐ 验证 Print：记录应用前的状态 ⭐⭐⭐
+        # if layer_idx in [0, 7, 15, 31] and image_centric_mask.any():
+        #     ic_heads = torch.nonzero(image_centric_mask).squeeze(-1).tolist()
+        #     non_ic_heads = torch.nonzero(~image_centric_mask).squeeze(-1).tolist()
+            
+        #     print(f"\n{'='*70}")
+        #     print(f"🔧 [Layer {layer_idx}] Mixed RoPE Application:")
+        #     print(f"   📊 Image-centric heads: {ic_heads[:5]}{'...' if len(ic_heads) > 5 else ''} ({len(ic_heads)} total)")
+        #     print(f"   📊 Non-IC heads: {non_ic_heads[:5]}{'...' if len(non_ic_heads) > 5 else ''} ({len(non_ic_heads)} total)")
+        
+        # ✅ Step 1: Apply MoE RoPE to all heads
+        query_embedded = apply_rotary_pos_emb_q(
+            query_states,
+            cos_moe[:, position_ids[0], :],
+            sin_moe[:, position_ids[0], :],
+            dim=-2
+        )
 
-        return attn_output, attn_weights, past_key_value,out_router_logits
+        # if layer_idx in [0, 7, 15, 31] and image_centric_mask.any():
+        #     moe_rope_sample = query_embedded[0, 0, 0, non_ic_heads[0] if non_ic_heads else 0, :5]
+        #     print(f"\n   ✅ Step 1: Applied MoE RoPE to ALL heads")
+        #     print(f"      Sample (expert 0, batch 0, query 0, head {non_ic_heads[0] if non_ic_heads else 0}, first 5 dims):")
+        #     print(f"      {moe_rope_sample.detach().float().cpu().numpy()}")
+            
+        #     print(f"\n   📐 MoE RoPE bases: {self.base_set}")
+        #     print(f"   📐 Fixed RoPE base: {self.fixed_base}")
+        
+        # ✅ Step 2: Override image-centric heads with fixed RoPE
+        if image_centric_mask.any():
+            cos_f = cos_fixed[position_ids[0], :]  # [q_len, head_dim]
+            sin_f = sin_fixed[position_ids[0], :]  # [q_len, head_dim]
+
+            # if layer_idx in [0, 7, 15, 31]:
+            #     print(f"\n   🔍 DEBUG: Checking cos_f and sin_f:")
+            #     print(f"      cos_fixed.shape: {cos_fixed.shape}")
+            #     print(f"      sin_fixed.shape: {sin_fixed.shape}")
+            #     print(f"      position_ids[0]: {position_ids[0][:10]}...")  # 前10个
+            #     print(f"      cos_f.shape: {cos_f.shape}")
+            #     print(f"      sin_f.shape: {sin_f.shape}")
+            #     print(f"      cos_f[0, :5]: {cos_f[0, :5].detach().float().cpu().numpy()}")
+            #     print(f"      sin_f[0, :5]: {sin_f[0, :5].detach().float().cpu().numpy()}")
+                
+            #     # 检查 cos_moe 对比
+            #     cos_moe_sample = cos_moe[1, position_ids[0, 0], :5]  # Expert 1, first position
+            #     sin_moe_sample = sin_moe[1, position_ids[0, 0], :5]
+            #     print(f"\n      For comparison - MoE (expert 1, pos 0):")
+            #     print(f"      cos_moe[1, pos_0, :5]: {cos_moe_sample.detach().float().cpu().numpy()}")
+            #     print(f"      sin_moe[1, pos_0, :5]: {sin_moe_sample.detach().float().cpu().numpy()}")
+            
+            # Expand dimensions: [1, 1, q_len, 1, head_dim]
+            cos_f = cos_f.unsqueeze(0).unsqueeze(0).unsqueeze(-2)
+            sin_f = sin_f.unsqueeze(0).unsqueeze(0).unsqueeze(-2)
+            
+            # ⭐⭐⭐ 关键修复：只用第一个 expert 的原始值（所有 experts 的原始值都一样） ⭐⭐⭐
+            ic_query_original = query_states[0:1, :, :, image_centric_mask, :]  # [1, bsz, q_len, num_ic_heads, head_dim]
+            
+            # 应用 Fixed RoPE
+            ic_query_fixed = (ic_query_original * cos_f) + (rotate_half(ic_query_original) * sin_f)
+            
+            # ⭐⭐⭐ 广播到所有 experts ⭐⭐⭐
+            ic_query_fixed = ic_query_fixed.repeat(expert_nums, 1, 1, 1, 1)  # [expert_nums, bsz, q_len, num_ic_heads, head_dim]
+            
+            # if layer_idx in [0, 7, 15, 31]:
+            #     expert_to_check = 1 if expert_nums > 1 else 0
+            #     check_pos_query = min(10, q_len - 1)  # 使用 position 10 或最后一个 position
+                
+            #     print(f"\n   🔍 Checking expert {expert_to_check}, position {check_pos_query} (base={self.base_set[expert_to_check]})")
+                
+            #     before_override = query_embedded[expert_to_check, 0, check_pos_query, ic_heads[0], :5].clone()
+                
+            #     print(f"\n   🔍 DEBUG: Checking assignment:")
+            #     print(f"      Before assignment - Expert {expert_to_check}, Pos {check_pos_query}, Head {ic_heads[0]}:")
+            #     print(f"         {before_override.detach().float().cpu().numpy()}")
+            #     print(f"      ic_query_fixed value:")
+            #     print(f"         Expert 0: {ic_query_fixed[0, 0, check_pos_query, 0, :5].detach().float().cpu().numpy()}")
+            #     print(f"         Expert {expert_to_check}: {ic_query_fixed[expert_to_check, 0, check_pos_query, 0, :5].detach().float().cpu().numpy()}")
+
+            # 覆盖所有 experts 的 IC heads
+            query_embedded[:, :, :, image_centric_mask, :] = ic_query_fixed
+
+            # if layer_idx in [0, 7, 15, 31]:
+            #     after_override = query_embedded[expert_to_check, 0, check_pos_query, ic_heads[0], :5]
+                
+            #     print(f"\n      After assignment - Expert {expert_to_check}, Pos {check_pos_query}, Head {ic_heads[0]}:")
+            #     print(f"         {after_override.detach().float().cpu().numpy()}")
+                
+            #     diff = (after_override - before_override).abs().mean().item()
+            #     print(f"      Mean absolute difference: {diff:.6f}")
+                
+            #     if diff < 1e-6:
+            #         print(f"      ⚠️ WARNING: No difference detected!")
+            #     else:
+            #         print(f"      ✅ SUCCESS: Override is working!")
+                
+            #     print(f"{'='*70}\n")
+        
+        return query_embedded
+    
+    def _compute_adaptive_router_logits(self, query_states, image_centric_mask):
+        """Compute router logits, setting fixed weights for image-centric heads."""
+        router_logits = self.act_fn(self.gate_1(query_states)) * self.gate_3(query_states)
+        router_logits = self.gate_2(router_logits)
+        
+        if image_centric_mask is not None and image_centric_mask.any():
+            bsz, q_len, num_heads, expert_nums = router_logits.shape
+            fixed_logits = torch.full_like(router_logits, -1e9)
+            fixed_logits[:, :, :, 0] = 10.0
+            router_logits[:, :, image_centric_mask, :] = fixed_logits[:, :, image_centric_mask, :]
+        
+        return router_logits
+    
+    def _compute_routing_weights(self, router_logits, image_centric_mask):
+        """Compute routing weights."""
+        routing_weights = nn.functional.softmax(router_logits, dim=-1, dtype=torch.float)
+        
+        routing_topk, selected_experts = torch.topk(router_logits, self.topk, dim=-1)
+        mask = torch.zeros_like(routing_weights, dtype=torch.bool)
+        mask.scatter_(-1, selected_experts, 1)
+        routing_weights = torch.where(mask, routing_weights, 0)
+        
+        routing_weights = routing_weights / (routing_weights.sum(dim=-1, keepdim=True) + 1e-10)
+        routing_weights = routing_weights.to(router_logits.dtype)
+        routing_weights = routing_weights.permute(3, 0, 1, 2).contiguous()
+        
+        return routing_weights
 
     def _flash_attention_forward(
         self, query_states, key_states, value_states, attention_mask, query_length, dropout=0.0, softmax_scale=None
     ):
-        """
-        Calls the forward method of Flash Attention - if the input hidden states contain at least one padding token
-        first unpad the input, then computes the attention scores and pad the final attention scores.
-
-        Args:
-            query_states (`torch.Tensor`):
-                Input query states to be passed to Flash Attention API
-            key_states (`torch.Tensor`):
-                Input key states to be passed to Flash Attention API
-            value_states (`torch.Tensor`):
-                Input value states to be passed to Flash Attention API
-            attention_mask (`torch.Tensor`):
-                The padding mask - corresponds to a tensor of size `(batch_size, seq_len)` where 0 stands for the
-                position of padding tokens and 1 for the position of non-padding tokens.
-            dropout (`int`, *optional*):
-                Attention dropout
-            softmax_scale (`float`, *optional*):
-                The scaling of QK^T before applying softmax. Default to 1 / sqrt(head_dim)
-        """
-        # Contains at least one padding token in the sequence
+        """Flash attention forward pass."""
         if attention_mask is not None:
             batch_size = query_states.shape[0]
             query_states, key_states, value_states, indices_q, cu_seq_lens, max_seq_lens = self._upad_input(
@@ -659,6 +938,7 @@ class LlamaFlashAttention2(LlamaAttention):
         return attn_output
 
     def _upad_input(self, query_layer, key_layer, value_layer, attention_mask, query_length):
+        """Unpad input for flash attention."""
         indices_k, cu_seqlens_k, max_seqlen_in_batch_k = _get_unpad_data(attention_mask)
         batch_size, kv_seq_len, num_key_value_heads, head_dim = key_layer.shape
 
@@ -679,11 +959,10 @@ class LlamaFlashAttention2(LlamaAttention):
             max_seqlen_in_batch_q = 1
             cu_seqlens_q = torch.arange(
                 batch_size + 1, dtype=torch.int32, device=query_layer.device
-            )  # There is a memcpy here, that is very bad.
+            )
             indices_q = cu_seqlens_q[:-1]
             query_layer = query_layer.squeeze(1)
         else:
-            # The -q_len: slice assumes left padding.
             attention_mask = attention_mask[:, -query_length:]
             query_layer, indices_q, cu_seqlens_q, max_seqlen_in_batch_q = unpad_input(query_layer, attention_mask)
 
@@ -697,7 +976,7 @@ class LlamaFlashAttention2(LlamaAttention):
         )
 
 class LlamaDecoderLayer(nn.Module):
-    def __init__(self, config: LlamaConfig):
+    def __init__(self, config: LlamaConfig, layer_idx: int = None):  # ⭐ 添加 layer_idx
         super().__init__()
         self.hidden_size = config.hidden_size
         self.self_attn = (
@@ -705,6 +984,10 @@ class LlamaDecoderLayer(nn.Module):
             if not getattr(config, "_flash_attn_2_enabled", False)
             else LlamaFlashAttention2(config=config)
         )
+        
+        if layer_idx is not None:
+            self.self_attn.layer_idx = layer_idx
+        
         self.mlp = LlamaMLP(config)
         self.input_layernorm = LlamaRMSNorm(config.hidden_size, eps=config.rms_norm_eps)
         self.post_attention_layernorm = LlamaRMSNorm(config.hidden_size, eps=config.rms_norm_eps)
@@ -718,6 +1001,7 @@ class LlamaDecoderLayer(nn.Module):
         output_attentions: Optional[bool] = False,
         use_cache: Optional[bool] = False,
         output_router_logits = True,
+        image_token_info: Optional[dict] = None, 
         **kwargs,
     ) -> Tuple[torch.FloatTensor, Optional[Tuple[torch.FloatTensor, torch.FloatTensor]]]:
         """
@@ -752,6 +1036,7 @@ class LlamaDecoderLayer(nn.Module):
             output_attentions=output_attentions,
             use_cache=use_cache,
             output_router_logits=output_router_logits,
+            image_token_info=image_token_info,
             **kwargs,
         )
         hidden_states = residual + hidden_states
@@ -898,8 +1183,11 @@ class LlamaModel(LlamaPreTrainedModel):
         self.vocab_size = config.vocab_size
 
         self.embed_tokens = nn.Embedding(config.vocab_size, config.hidden_size, self.padding_idx)
-        self.layers = nn.ModuleList([LlamaDecoderLayer(config) for _ in range(config.num_hidden_layers)])
+        # self.layers = nn.ModuleList([LlamaDecoderLayer(config) for _ in range(config.num_hidden_layers)])
+        self.layers = nn.ModuleList([LlamaDecoderLayer(config, layer_idx=i) for i in range(config.num_hidden_layers)])
         self.norm = LlamaRMSNorm(config.hidden_size, eps=config.rms_norm_eps)
+        
+        self._image_token_info = None
 
         self.gradient_checkpointing = False
         # Initialize weights and apply final processing
@@ -980,6 +1268,9 @@ class LlamaModel(LlamaPreTrainedModel):
                     "`use_cache=True` is incompatible with gradient checkpointing. Setting `use_cache=False`..."
                 )
                 use_cache = False
+                
+
+        image_token_info = getattr(self, '_image_token_info', None)
 
         # decoder layers
         all_hidden_states = () if output_hidden_states else None
@@ -1002,6 +1293,8 @@ class LlamaModel(LlamaPreTrainedModel):
                     past_key_value,
                     output_attentions,
                     use_cache,
+                    output_router_logits,
+                    image_token_info,
                 )
             else:
                 layer_outputs = decoder_layer(
@@ -1012,6 +1305,7 @@ class LlamaModel(LlamaPreTrainedModel):
                     output_attentions=output_attentions,
                     use_cache=use_cache,
                     output_router_logits=output_router_logits,
+                    image_token_info=image_token_info,
                 )
 
             hidden_states = layer_outputs[0]

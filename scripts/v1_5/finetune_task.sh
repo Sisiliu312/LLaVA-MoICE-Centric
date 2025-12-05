@@ -6,8 +6,8 @@ deepspeed llava/train/train_mem.py \
     --deepspeed /root/LLaVA-MoICE/scripts/v1_5/ds_z3_bf16.json \
     --model_name_or_path /hy-tmp/llava-v1.5-7b \
     --version v1 \
-    --data_path /hy-tmp/TextVQA/llava_v1_5_1k_train.json \
-    --image_folder /hy-tmp/TextVQA/val_images \
+    --data_path /hy-tmp/MuirBench/v2/train_all_prompt_convert.json \
+    --image_folder /hy-tmp/MuirBench/v2/train_image \
     --vision_tower /hy-tmp/clip-vit-large-patch14-336 \
     --mm_projector_type mlp2x_gelu \
     --mm_vision_select_layer -2 \
@@ -16,7 +16,7 @@ deepspeed llava/train/train_mem.py \
     --image_aspect_ratio pad \
     --group_by_modality_length True \
     --bf16 True \
-    --output_dir /hy-tmp/checkpoints/test \
+    --output_dir /hy-tmp/checkpoints/llava-v1.5-7b-MoICE-v2-centric-0.78 \
     --num_train_epochs 10 \
     --per_device_train_batch_size 1 \
     --per_device_eval_batch_size 1 \
@@ -34,7 +34,8 @@ deepspeed llava/train/train_mem.py \
     --gradient_checkpointing True \
     --dataloader_num_workers 4 \
     --lazy_preprocess True \
-    --router_aux_loss_coef 0.3 \
+    --report_to wandb \
+     --router_aux_loss_coef 0.3 \
     --pretrain_loss True \
     --topk 7 \
     --expert_nums 7 \

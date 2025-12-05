@@ -9,7 +9,7 @@ class ImageCentricConfig:
     """Configuration for image-centric head detection"""
     tau: float = 5.0
     rho: float = 0.0010
-    summ: float = 0.8
+    summ: float = 0.78
     dim_sink: list = None
     verbose: bool = False
     

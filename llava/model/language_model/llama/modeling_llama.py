@@ -668,9 +668,9 @@ class LlamaFlashAttention2(LlamaAttention):
                 LlamaFlashAttention2._printed_layers.add(layer_idx)
                 
                 ic_heads = torch.nonzero(image_centric_mask).squeeze(-1).tolist()
-                # print(f"\n[Layer {layer_idx}] Image-Centric Heads Detected:")
-                # print(f"  🔒 {len(ic_heads)} heads using FIXED RoPE (base={self.fixed_base:.0f})")
-                # print(f"  🔄 {self.num_heads - len(ic_heads)} heads using MoE RoPE")
+                print(f"\n[Layer {layer_idx}] Image-Centric Heads Detected:")
+                print(f"  🔒 {len(ic_heads)} heads using FIXED RoPE (base={self.fixed_base:.0f})")
+                print(f"  🔄 {self.num_heads - len(ic_heads)} heads using MoE RoPE")
            
         # ⭐⭐⭐ 正常的 MoE forward ⭐⭐⭐
         query_states_router = query_states.unsqueeze(0).repeat(self.expert_nums, 1, 1, 1, 1)

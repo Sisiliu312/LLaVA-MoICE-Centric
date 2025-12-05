@@ -4,7 +4,7 @@ export PYTHONWARNINGS="ignore"
 # CUDA_VISIBLE_DEVICES=0
 
 python -m llava.eval.model_vqa_loader \
-    --model-path /hy-tmp/checkpoints/llava-v1.5-7b-v2-centric \
+    --model-path /hy-tmp/checkpoints/llava-v1.5-7b-MoICE-v2-centric-5-0.78 \
     --question-file /hy-tmp/MuirBench/v2/test_all_eval_prompt_convert.jsonl \
     --image-folder /hy-tmp/MuirBench/v2/test_image \
     --answers-file /hy-tmp/MuirBench/v2/answer_all.jsonl \

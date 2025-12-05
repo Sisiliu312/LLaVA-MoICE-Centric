@@ -146,24 +146,24 @@ class LlavaMetaForCausalLM(ABC):
         # print("Projected image features shape:", image_features.shape)
         return image_features
     
-    # def encode_images(self, images):
-    #     # [B, 576, D]
-    #     image_features = self.get_model().get_vision_tower()(images)
-    #     # print("Original image features shape:", image_features.shape)
-    #     # 转成 [B, D, 24, 24]
-    #     B, N, D = image_features.shape
-    #     assert N == 24 * 24, f"Unexpected patch number: {N}"
-    #     image_features = image_features.transpose(1, 2).reshape(B, D, 24, 24)
+    def encode_images(self, images):
+        # [B, 576, D]
+        image_features = self.get_model().get_vision_tower()(images)
+        # print("Original image features shape:", image_features.shape)
+        # 转成 [B, D, 24, 24]
+        B, N, D = image_features.shape
+        assert N == 24 * 24, f"Unexpected patch number: {N}"
+        image_features = image_features.transpose(1, 2).reshape(B, D, 24, 24)
 
-    #     # 平均池化到 12x12
-    #     image_features = F.avg_pool2d(image_features, kernel_size=2, stride=2)  # [B, C, 12, 12]
+        # 平均池化到 12x12
+        image_features = F.avg_pool2d(image_features, kernel_size=2, stride=2)  # [B, C, 12, 12]
 
-    #     # 再展平成 [B, 144, D]
-    #     image_features = image_features.reshape(B, D, 12*12).transpose(1, 2)
+        # 再展平成 [B, 144, D]
+        image_features = image_features.reshape(B, D, 12*12).transpose(1, 2)
 
-    #     image_features = self.get_model().mm_projector(image_features)
-    #     # print("Projected image features shape:", image_features.shape)
-    #     return image_features
+        image_features = self.get_model().mm_projector(image_features)
+        # print("Projected image features shape:", image_features.shape)
+        return image_features
 
     def prepare_inputs_labels_for_multimodal(
         self, input_ids, position_ids, attention_mask, past_key_values, labels,
